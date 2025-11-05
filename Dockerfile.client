@@ -1,0 +1,10 @@
+FROM debian:bookworm-slim
+
+# Install MariaDB client and basic utilities
+RUN apt-get update && apt-get install -y \
+    mariadb-client \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Default command
+CMD ["/bin/bash"]
