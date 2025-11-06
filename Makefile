@@ -9,10 +9,10 @@ init:
 	@./scripts/download-headers.sh $(MARIADB_VERSION)
 
 # Build the plugin (compiles inside Docker image and extracts to ./build)
-# Default: JWT validation
+# Default: Token Validator API (production, multi-cluster)
 build:
-	@echo "Building MariaDB K8s Auth Plugin Docker image (JWT validation)..."
-	docker build -t mariadb-auth-k8s:latest .
+	@echo "Building MariaDB K8s Auth Plugin Docker image (Token Validator API)..."
+	docker build --build-arg CMAKE_OPTS="-DUSE_TOKEN_VALIDATOR_API=ON" -t mariadb-auth-k8s:latest .
 	@echo "✓ Plugin compiled inside Docker image"
 	@echo "Extracting plugin to ./build/..."
 	@mkdir -p build
@@ -21,17 +21,8 @@ build:
 		docker rm $$CONTAINER_ID > /dev/null
 	@echo "✓ Plugin extracted to ./build/auth_k8s.so"
 
-# Build with Token Validator API (production, multi-cluster)
-build-api:
-	@echo "Building MariaDB K8s Auth Plugin Docker image (Token Validator API)..."
-	docker build --build-arg CMAKE_OPTS="-DUSE_TOKEN_VALIDATOR_API=ON" -t mariadb-auth-k8s:api .
-	@echo "✓ Plugin compiled inside Docker image"
-	@echo "Extracting plugin to ./build/..."
-	@mkdir -p build
-	@CONTAINER_ID=$$(docker create mariadb-auth-k8s:api) && \
-		docker cp $$CONTAINER_ID:/workspace/build/auth_k8s.so ./build/auth_k8s.so && \
-		docker rm $$CONTAINER_ID > /dev/null
-	@echo "✓ Plugin extracted to ./build/auth_k8s.so"
+# Alias for build (Token Validator API)
+build-api: build
 
 # Build with JWT validation (default)
 build-jwt:
@@ -129,8 +120,8 @@ help:
 	@echo ""
 	@echo "Build targets:"
 	@echo "  make init              - Download and package MariaDB server headers"
-	@echo "  make build             - Build plugin (JWT validation, default)"
-	@echo "  make build-api         - Build plugin with Token Validator API (production)"
+	@echo "  make build             - Build plugin (Token Validator API, default)"
+	@echo "  make build-api         - Alias for 'make build'"
 	@echo "  make build-jwt         - Build plugin with JWT validation"
 	@echo "  make build-tokenreview - Build plugin with TokenReview API"
 	@echo "  make clean             - Clean build artifacts"

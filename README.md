@@ -302,8 +302,8 @@ mariadb-auth-k8s/
 ### Build Targets
 ```bash
 make init              # Download and package MariaDB server headers
-make build             # Build plugin (JWT validation, default)
-make build-api         # Build plugin with Token Validator API (production)
+make build             # Build plugin (Token Validator API, default)
+make build-api         # Alias for 'make build'
 make build-jwt         # Build plugin with JWT validation
 make build-tokenreview # Build plugin with TokenReview API
 make clean             # Clean build artifacts
