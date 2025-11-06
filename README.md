@@ -246,10 +246,10 @@ mariadb-auth-k8s/
 │   ├── auth_k8s_validator_api.c  # Token Validator API client plugin
 │   ├── auth_k8s_jwt.c            # JWT validation plugin
 │   ├── auth_k8s_tokenreview.c    # TokenReview API plugin
-│   ├── k8s_jwt_validator.c       # JWT validator with OIDC discovery
-│   ├── k8s_jwt_validator.h       # JWT validator interface
-│   ├── k8s_token_validator.c     # TokenReview API client
-│   └── k8s_token_validator.h     # TokenReview API interface
+│   ├── jwt_crypto.c              # JWT cryptographic validation
+│   ├── jwt_crypto.h              # JWT crypto interface
+│   ├── tokenreview_api.c         # TokenReview API client
+│   └── tokenreview_api.h         # TokenReview API interface
 │
 ├── token-validator-api/          # Token Validator API service (Node.js)
 │   ├── Dockerfile                # API service container

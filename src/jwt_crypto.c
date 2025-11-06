@@ -5,7 +5,7 @@
  * and cryptographic signature verification.
  */
 
-#include "k8s_jwt_validator.h"
+#include "jwt_crypto.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -896,7 +896,7 @@ static char *load_token_from_file(const char *path)
  * Initialize JWT validator for local cluster
  * Auto-configures using pod's mounted ServiceAccount
  */
-int k8s_jwt_validator_init(void)
+int jwt_crypto_init(void)
 {
     if (g_initialized) {
         fprintf(stderr, "JWT Validator: Already initialized\n");
@@ -935,7 +935,7 @@ int k8s_jwt_validator_init(void)
 /*
  * Cleanup
  */
-void k8s_jwt_validator_cleanup(void)
+void jwt_crypto_cleanup(void)
 {
     if (!g_initialized) {
         return;

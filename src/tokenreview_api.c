@@ -2,7 +2,7 @@
  * Kubernetes TokenReview API Client Implementation
  */
 
-#include "k8s_token_validator.h"
+#include "tokenreview_api.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -5,8 +5,8 @@
  * and cryptographic signature verification (no TokenReview API needed).
  */
 
-#ifndef K8S_JWT_VALIDATOR_H
-#define K8S_JWT_VALIDATOR_H
+#ifndef JWT_CRYPTO_H
+#define JWT_CRYPTO_H
 
 #include <time.h>
 
@@ -63,7 +63,7 @@ typedef struct {
  *
  * @return 0 on success, -1 on error
  */
-int k8s_jwt_validator_init(void);
+int jwt_crypto_init(void);
 
 /*
  * Validate a JWT token from the local cluster
@@ -107,6 +107,6 @@ int k8s_jwt_fetch_jwks(int force_refresh);
 /*
  * Clean up resources
  */
-void k8s_jwt_validator_cleanup(void);
+void jwt_crypto_cleanup(void);
 
-#endif /* K8S_JWT_VALIDATOR_H */
+#endif /* JWT_CRYPTO_H */

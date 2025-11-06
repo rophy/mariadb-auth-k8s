@@ -48,7 +48,7 @@ build-jwt:
 # Build with TokenReview API
 build-tokenreview:
 	@echo "Building MariaDB K8s Auth Plugin Docker image (TokenReview API)..."
-	docker build --build-arg CMAKE_OPTS="" -t mariadb-auth-k8s:tokenreview .
+	docker build --build-arg CMAKE_OPTS="-DUSE_JWT_VALIDATION=OFF" -t mariadb-auth-k8s:tokenreview .
 	@echo "✓ Plugin compiled inside Docker image"
 	@echo "Extracting plugin to ./build/..."
 	@mkdir -p build

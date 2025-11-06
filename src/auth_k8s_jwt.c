@@ -9,7 +9,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "k8s_jwt_validator.h"
+#include "jwt_crypto.h"
 
 /* Plugin version */
 #define PLUGIN_VERSION 0x0300
@@ -25,7 +25,7 @@ static int auth_k8s_plugin_init(void *p)
     fprintf(stderr, "K8s JWT Auth: Initializing plugin...\n");
 
     /* Initialize JWT validator (auto-configures for local cluster) */
-    if (k8s_jwt_validator_init() != 0) {
+    if (jwt_crypto_init() != 0) {
         fprintf(stderr, "K8s JWT Auth: Failed to initialize JWT validator\n");
         return 1;
     }
@@ -40,7 +40,7 @@ static int auth_k8s_plugin_init(void *p)
 static int auth_k8s_plugin_deinit(void *p)
 {
     fprintf(stderr, "K8s JWT Auth: Cleaning up plugin...\n");
-    k8s_jwt_validator_cleanup();
+    jwt_crypto_cleanup();
     return 0;
 }
 

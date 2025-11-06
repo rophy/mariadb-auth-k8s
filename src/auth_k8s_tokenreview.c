@@ -8,7 +8,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "k8s_token_validator.h"
+#include "tokenreview_api.h"
 
 /* Plugin version */
 #define PLUGIN_VERSION 0x0200
