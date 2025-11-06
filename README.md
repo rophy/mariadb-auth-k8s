@@ -19,82 +19,69 @@ A MariaDB authentication plugin that validates Kubernetes ServiceAccount tokens,
 
 ### Token Validator API (Production - Recommended)
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Kubernetes Cluster A (MariaDB + Token Validator API)       │
-│                                                             │
-│  ┌──────────────┐         ┌─────────────────────────────┐ │
-│  │ MariaDB Pod  │────────>│ Token Validator API         │ │
-│  │              │  HTTP   │ - JWT validation            │ │
-│  │ Auth Plugin  │         │ - OIDC discovery            │ │
-│  │ (280 lines)  │         │ - JWKS caching              │ │
-│  └──────────────┘         │ - Multi-cluster configs     │ │
-│                           └─────────────────────────────┘ │
-│                                      │                     │
-│                                      │ Fetches JWKS from   │
-│                                      ▼                     │
-│                           ┌─────────────────┐             │
-│                           │ K8s API Servers │             │
-│                           │ (Local + Remote)│             │
-│                           └─────────────────┘             │
-└─────────────────────────────────────────────────────────────┘
-                                     │
-                                     │ Validates tokens from
-                                     ▼
-┌─────────────────────────────────────────────────────────────┐
-│ Kubernetes Cluster B (Client Applications)                 │
-│                                                             │
-│  ┌────────────────┐                                        │
-│  │ Client App Pod │──── JWT Token ───> MariaDB (Cluster A)│
-│  │ SA: ns/user1   │                                        │
-│  └────────────────┘                                        │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph ClusterB["Kubernetes Cluster B (Client Applications)"]
+        ClientPod["Client App Pod<br/>SA: ns/user1"]
+        K8sAPIB["K8s API Server B"]
+    end
 
-Centralized validation, multi-cluster support, operational simplicity
+    subgraph ClusterA["Kubernetes Cluster A (MariaDB + Token Validator API)"]
+        MariaDB["MariaDB Pod<br/>Auth Plugin<br/>(280 lines)"]
+        API["Token Validator API<br/>• JWT validation<br/>• OIDC discovery<br/>• JWKS caching<br/>• Multi-cluster configs"]
+        K8sAPIA["K8s API Server A"]
+
+        MariaDB -->|HTTP| API
+        API -->|Fetches JWKS<br/>from local cluster| K8sAPIA
+    end
+
+    ClientPod -->|JWT Token| MariaDB
+    API -->|Fetches JWKS<br/>from remote cluster| K8sAPIB
+
+    style MariaDB fill:#e1f5ff
+    style API fill:#fff4e1
+    style K8sAPIA fill:#e8f5e9
+    style K8sAPIB fill:#e8f5e9
+    style ClientPod fill:#f3e5f5
 ```
+
+**Centralized validation, multi-cluster support, operational simplicity**
 
 ### JWT Validation (Standalone)
 
-```
-┌─────────────┐                    ┌──────────────┐
-│   Client    │ ServiceAccount     │   MariaDB    │
-│     Pod     │ Token (password)   │     Pod      │
-│             ├───────────────────>│              │
-│             │                    │  auth_k8s    │
-└─────────────┘                    │   plugin     │
-                                   └──────┬───────┘
-                                          │
-                                          │ OIDC Discovery
-                                          │ JWKS Fetch (cached)
-                                          │
-                                   ┌──────▼───────┐
-                                   │  Kubernetes  │
-                                   │  API Server  │
-                                   │              │
-                                   │ - /.well-known/openid-configuration
-                                   │ - /openid/v1/jwks
-                                   └──────────────┘
+```mermaid
+sequenceDiagram
+    participant Client as Client Pod
+    participant MariaDB as MariaDB Pod<br/>(auth_k8s plugin)
+    participant K8sAPI as Kubernetes<br/>API Server
 
-Local JWT signature verification (no API call per auth)
+    Client->>MariaDB: ServiceAccount Token<br/>(password)
+    MariaDB->>K8sAPI: OIDC Discovery<br/>/.well-known/openid-configuration
+    K8sAPI-->>MariaDB: OIDC config
+    MariaDB->>K8sAPI: JWKS Fetch (cached)<br/>/openid/v1/jwks
+    K8sAPI-->>MariaDB: Public keys
+    MariaDB->>MariaDB: Local JWT signature<br/>verification
+    MariaDB-->>Client: Authentication result
+
+    Note over MariaDB,K8sAPI: No API call per auth after cache
 ```
+
+**Local JWT signature verification (no API call per auth)**
 
 ### TokenReview API (Optional)
 
-```
-┌─────────────┐                    ┌──────────────┐
-│   Client    │ ServiceAccount     │   MariaDB    │
-│     Pod     │ Token (password)   │     Pod      │
-│             ├───────────────────>│              │
-│             │                    │  auth_k8s    │
-└─────────────┘                    │   plugin     │
-                                   └──────┬───────┘
-                                          │
-                                          │ TokenReview API
-                                          │
-                                   ┌──────▼───────┐
-                                   │  Kubernetes  │
-                                   │  API Server  │
-                                   └──────────────┘
+```mermaid
+sequenceDiagram
+    participant Client as Client Pod
+    participant MariaDB as MariaDB Pod<br/>(auth_k8s plugin)
+    participant K8sAPI as Kubernetes<br/>API Server
+
+    Client->>MariaDB: ServiceAccount Token<br/>(password)
+    MariaDB->>K8sAPI: TokenReview API<br/>(validate token)
+    K8sAPI-->>MariaDB: Token validation result<br/>(namespace/serviceaccount)
+    MariaDB-->>Client: Authentication result
+
+    Note over MariaDB,K8sAPI: API call required for every auth
 ```
 
 ## Validation Methods
