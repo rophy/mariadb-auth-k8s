@@ -230,7 +230,7 @@ GET  /api/v1/clusters      - List configured clusters (debug)
 - [ ] Auto-detect local cluster
 - [ ] Return correct username format
 
-**Status:** Not Started
+**Status:** Complete
 
 ---
 
@@ -252,12 +252,13 @@ GET  /api/v1/clusters      - List configured clusters (debug)
 
 **Files:**
 ```
-token-validator-api/k8s/
-├── deployment.yaml       # Deployment (3 replicas)
-├── service.yaml          # ClusterIP Service
-├── configmap.yaml        # Cluster configurations
-├── secrets.yaml.example  # Template for cluster tokens/certs
-└── networkpolicy.yaml    # Restrict access to MariaDB pods
+k8s/
+├── token-validator-deployment.yaml       # Deployment (3 replicas)
+├── token-validator-service.yaml          # ClusterIP Service
+├── token-validator-serviceaccount.yaml   # ServiceAccount & RBAC
+├── token-validator-configmap.yaml        # Cluster configurations
+├── token-validator-secrets.yaml.example  # Template for cluster tokens/certs
+└── token-validator-networkpolicy.yaml    # Restrict access to MariaDB pods
 ```
 
 **ConfigMap Example:**
@@ -300,7 +301,7 @@ data:
 - [ ] Test API endpoint from within cluster
 - [ ] Verify NetworkPolicy blocks external access
 
-**Status:** Not Started
+**Status:** Complete
 
 ---
 
@@ -392,7 +393,7 @@ ENDIF()
 - [ ] User1 can access all databases
 - [ ] User2 can only access testdb
 
-**Status:** Not Started
+**Status:** Complete
 
 ---
 
@@ -446,7 +447,7 @@ README.md
 - [ ] Test token rotation
 - [ ] Test adding new cluster without downtime
 
-**Status:** Not Started
+**Status:** Complete
 
 ---
 
@@ -486,21 +487,20 @@ mariadb-auth-k8s/
 │   │   └── oidc-discovery.js
 │   ├── config/
 │   │   └── clusters.example.yaml
-│   ├── k8s/
-│   │   ├── deployment.yaml
-│   │   ├── service.yaml
-│   │   ├── configmap.yaml
-│   │   ├── secrets.yaml.example
-│   │   └── networkpolicy.yaml
 │   └── test/
 │       ├── validator.test.js
 │       └── fixtures/
 │
 ├── k8s/                             # Kubernetes manifests
 │   ├── mariadb-deployment.yaml
-│   ├── mariadb-service.yaml
-│   ├── test-user1.yaml
-│   └── test-user2.yaml
+│   ├── rbac.yaml
+│   ├── test-client.yaml
+│   ├── token-validator-deployment.yaml
+│   ├── token-validator-service.yaml
+│   ├── token-validator-serviceaccount.yaml
+│   ├── token-validator-configmap.yaml
+│   ├── token-validator-secrets.yaml.example
+│   └── token-validator-networkpolicy.yaml
 │
 └── scripts/
     ├── test-auth.sh                 # Updated for API plugin
@@ -513,8 +513,11 @@ mariadb-auth-k8s/
 
 **Step 1:** Deploy Token Validator API
 ```bash
-cd token-validator-api
-kubectl apply -f k8s/
+kubectl apply -f k8s/token-validator-serviceaccount.yaml
+kubectl apply -f k8s/token-validator-configmap.yaml
+kubectl apply -f k8s/token-validator-deployment.yaml
+kubectl apply -f k8s/token-validator-service.yaml
+kubectl apply -f k8s/token-validator-networkpolicy.yaml
 ```
 
 **Step 2:** Configure cluster credentials

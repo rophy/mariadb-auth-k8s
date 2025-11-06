@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: token-validator-api
+  namespace: mariadb-auth-test
+spec:
+  podSelector:
+    matchLabels:
+      app: token-validator-api
+  policyTypes:
+  - Ingress
+  ingress:
+  # Allow from MariaDB pods
+  - from:
+    - podSelector:
+        matchLabels:
+          app: mariadb
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow from same namespace (for debugging)
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8080

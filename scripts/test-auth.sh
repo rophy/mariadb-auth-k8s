@@ -35,10 +35,10 @@ kubectl exec -n $NAMESPACE deployment/client-user1 -- bash -c '
     fi
     echo ""
 
-    echo "Authenticating as mariadb-auth-test/user1..."
+    echo "Authenticating as local/mariadb-auth-test/user1..."
     SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
 
-    mysql -h mariadb -u "mariadb-auth-test/user1" -p"$SA_TOKEN" -e "
+    mysql -h mariadb -u "local/mariadb-auth-test/user1" -p"$SA_TOKEN" -e "
         SELECT \"✅ Authentication successful!\" AS status;
         SELECT USER() AS user, CURRENT_USER() AS authenticated_as;
         SHOW DATABASES;
@@ -78,10 +78,10 @@ kubectl exec -n $NAMESPACE deployment/client-user2 -- bash -c '
     fi
     echo ""
 
-    echo "Authenticating as mariadb-auth-test/user2..."
+    echo "Authenticating as local/mariadb-auth-test/user2..."
     SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
 
-    mysql -h mariadb -u "mariadb-auth-test/user2" -p"$SA_TOKEN" -e "
+    mysql -h mariadb -u "local/mariadb-auth-test/user2" -p"$SA_TOKEN" -e "
         SELECT \"✅ Authentication successful!\" AS status;
         SELECT USER() AS user, CURRENT_USER() AS authenticated_as;
         SHOW DATABASES;
@@ -107,7 +107,7 @@ kubectl exec -n $NAMESPACE deployment/client-user2 -- bash -c '
     SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
 
     echo "Attempting to access mysql database (should FAIL)..."
-    if mysql -h mariadb -u "mariadb-auth-test/user2" -p"$SA_TOKEN" -e "USE mysql; SHOW TABLES;" 2>&1 | grep -q "Access denied"; then
+    if mysql -h mariadb -u "local/mariadb-auth-test/user2" -p"$SA_TOKEN" -e "USE mysql; SHOW TABLES;" 2>&1 | grep -q "Access denied"; then
         echo "✅ Access denied as expected - permissions are correctly restricted"
     else
         echo "❌ User2 should NOT have access to mysql database!"

@@ -12,15 +12,16 @@ mysql -u root <<EOF
 INSTALL SONAME 'auth_k8s';
 
 -- Create users for different namespaces/serviceaccounts
--- Format: 'namespace/serviceaccount'@'%'
+-- Format: 'cluster_name/namespace/serviceaccount'@'%'
+-- For Token Validator API architecture, cluster name is required
 
 -- User1: Full admin access to all databases
-CREATE USER IF NOT EXISTS 'mariadb-auth-test/user1'@'%' IDENTIFIED VIA auth_k8s;
-GRANT ALL PRIVILEGES ON *.* TO 'mariadb-auth-test/user1'@'%';
+CREATE USER IF NOT EXISTS 'local/mariadb-auth-test/user1'@'%' IDENTIFIED VIA auth_k8s;
+GRANT ALL PRIVILEGES ON *.* TO 'local/mariadb-auth-test/user1'@'%';
 
 -- User2: Limited access to testdb only
-CREATE USER IF NOT EXISTS 'mariadb-auth-test/user2'@'%' IDENTIFIED VIA auth_k8s;
-GRANT ALL PRIVILEGES ON testdb.* TO 'mariadb-auth-test/user2'@'%';
+CREATE USER IF NOT EXISTS 'local/mariadb-auth-test/user2'@'%' IDENTIFIED VIA auth_k8s;
+GRANT ALL PRIVILEGES ON testdb.* TO 'local/mariadb-auth-test/user2'@'%';
 
 -- Create test database
 CREATE DATABASE IF NOT EXISTS testdb;

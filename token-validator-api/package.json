@@ -1,0 +1,31 @@
+{
+  "name": "token-validator-api",
+  "version": "1.0.0",
+  "description": "Token Validator API for MariaDB Kubernetes authentication",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "keywords": [
+    "kubernetes",
+    "jwt",
+    "authentication",
+    "mariadb"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "jose": "^5.2.0",
+    "axios": "^1.6.5",
+    "https-proxy-agent": "^7.0.2",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3"
+  }
+}

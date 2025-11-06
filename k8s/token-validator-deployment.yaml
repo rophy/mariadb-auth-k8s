@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: token-validator-api
+  namespace: mariadb-auth-test
+  labels:
+    app: token-validator-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: token-validator-api
+  template:
+    metadata:
+      labels:
+        app: token-validator-api
+    spec:
+      serviceAccountName: token-validator
+      containers:
+      - name: api
+        image: token-validator-api:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: PORT
+          value: "8080"
+        - name: CLUSTER_CONFIG_PATH
+          value: "/etc/token-validator/clusters.yaml"
+        volumeMounts:
+        - name: config
+          mountPath: /etc/token-validator
+          readOnly: true
+        - name: secrets
+          mountPath: /etc/secrets
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: token-validator-config
+      - name: secrets
+        secret:
+          secretName: token-validator-secrets
+          optional: true

@@ -9,11 +9,16 @@ build:
     useBuildkit: true
     concurrency: 1
   artifacts:
+  - image: token-validator-api
+    context: token-validator-api
+    docker:
+      dockerfile: Dockerfile
   - image: mariadb-server
     docker:
       dockerfile: Dockerfile.mariadb
       buildArgs:
         BUILDKIT_INLINE_CACHE: "1"
+        CMAKE_OPTS: "-DUSE_TOKEN_VALIDATOR_API=ON"
   - image: test-client
     docker:
       dockerfile: Dockerfile.client
@@ -22,8 +27,13 @@ build:
 
 manifests:
   rawYaml:
-  - k8s/mariadb-deployment.yaml
+  - k8s/mariadb-deployment.yaml  # Contains namespace definition
   - k8s/rbac.yaml
+  - k8s/token-validator-serviceaccount.yaml
+  - k8s/token-validator-configmap.yaml
+  - k8s/token-validator-deployment.yaml
+  - k8s/token-validator-service.yaml
+  - k8s/token-validator-networkpolicy.yaml
   - k8s/test-client.yaml
 
 deploy:

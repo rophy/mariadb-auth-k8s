@@ -1,7 +1,8 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.5)
 PROJECT(mariadb_auth_k8s C)
 
-# Build option: Choose validation method
+# Build options: Choose validation method
+OPTION(USE_TOKEN_VALIDATOR_API "Use Token Validator API (production, multi-cluster)" OFF)
 OPTION(USE_JWT_VALIDATION "Use JWT validation instead of TokenReview API" ON)
 
 # Find MariaDB server-side plugin headers (downloaded from source)
@@ -29,7 +30,9 @@ FIND_PACKAGE(PkgConfig REQUIRED)
 PKG_CHECK_MODULES(JSON_C REQUIRED json-c)
 FIND_PACKAGE(OpenSSL REQUIRED)
 
-IF(USE_JWT_VALIDATION)
+IF(USE_TOKEN_VALIDATOR_API)
+    MESSAGE(STATUS "Token Validator API enabled (production, multi-cluster)")
+ELSEIF(USE_JWT_VALIDATION)
     MESSAGE(STATUS "JWT validation enabled - using OpenSSL")
 ELSE()
     MESSAGE(STATUS "TokenReview API validation enabled")
@@ -42,7 +45,12 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GNU_SOURCE")
 ADD_DEFINITIONS(-DMYSQL_DYNAMIC_PLUGIN)
 
 # Build server-side plugin as a module
-IF(USE_JWT_VALIDATION)
+IF(USE_TOKEN_VALIDATOR_API)
+    # Token Validator API client version - production, multi-cluster
+    ADD_LIBRARY(auth_k8s MODULE src/auth_k8s_api.c)
+    TARGET_LINK_LIBRARIES(auth_k8s ${CURL_LIBRARIES} ${JSON_C_LIBRARIES})
+    TARGET_INCLUDE_DIRECTORIES(auth_k8s PRIVATE ${CURL_INCLUDE_DIRS} ${JSON_C_INCLUDE_DIRS})
+ELSEIF(USE_JWT_VALIDATION)
     # JWT validation version - pure OpenSSL implementation
     ADD_LIBRARY(auth_k8s MODULE src/auth_k8s_server_jwt.c src/k8s_jwt_validator.c)
     TARGET_LINK_LIBRARIES(auth_k8s ${CURL_LIBRARIES} ${JSON_C_LIBRARIES} OpenSSL::SSL OpenSSL::Crypto)
@@ -83,7 +91,11 @@ MESSAGE(STATUS "==========================================")
 MESSAGE(STATUS "MariaDB K8s Auth Plugin Build Configuration")
 MESSAGE(STATUS "==========================================")
 MESSAGE(STATUS "Server plugin: auth_k8s.so")
-IF(USE_JWT_VALIDATION)
+IF(USE_TOKEN_VALIDATOR_API)
+    MESSAGE(STATUS "Validation method: Token Validator API (production)")
+    MESSAGE(STATUS "Dependencies: libcurl, libjson-c")
+    MESSAGE(STATUS "Note: Requires Token Validator API service running")
+ELSEIF(USE_JWT_VALIDATION)
     MESSAGE(STATUS "Validation method: JWT with OIDC discovery (OpenSSL)")
     MESSAGE(STATUS "Dependencies: libcurl, libjson-c, OpenSSL")
 ELSE()

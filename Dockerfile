@@ -1,5 +1,8 @@
 FROM debian:bookworm
 
+# Build arguments
+ARG CMAKE_OPTS="-DUSE_JWT_VALIDATION=ON"
+
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -29,7 +32,7 @@ COPY CMakeLists.txt /workspace/
 # Build the plugin
 RUN mkdir -p build && \
     cd build && \
-    cmake .. && \
+    cmake ${CMAKE_OPTS} .. && \
     make && \
     echo 'Build complete! Artifacts:' && \
     ls -lh *.so

@@ -47,6 +47,8 @@ spec:
           value: ""
         - name: MYSQL_ALLOW_EMPTY_PASSWORD
           value: "yes"
+        - name: TOKEN_VALIDATOR_API_URL
+          value: "http://token-validator-api.mariadb-auth-test.svc.cluster.local:8080/api/v1/validate"
         livenessProbe:
           exec:
             command:
