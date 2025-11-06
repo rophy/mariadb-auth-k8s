@@ -24,18 +24,26 @@ MESSAGE(STATUS "Found MariaDB server headers: ${MARIADB_SERVER_INCLUDE_DIR}")
 # Include server headers
 INCLUDE_DIRECTORIES(${MARIADB_SERVER_INCLUDE_DIR})
 
-# Find required libraries
-FIND_PACKAGE(CURL REQUIRED)
-FIND_PACKAGE(PkgConfig REQUIRED)
-PKG_CHECK_MODULES(JSON_C REQUIRED json-c)
-FIND_PACKAGE(OpenSSL REQUIRED)
-
+# Determine which libraries are needed based on build options
 IF(USE_TOKEN_VALIDATOR_API)
     MESSAGE(STATUS "Token Validator API enabled (production, multi-cluster)")
+    # Token Validator API needs: libcurl, json-c
+    FIND_PACKAGE(CURL REQUIRED)
+    FIND_PACKAGE(PkgConfig REQUIRED)
+    PKG_CHECK_MODULES(JSON_C REQUIRED json-c)
 ELSEIF(USE_JWT_VALIDATION)
     MESSAGE(STATUS "JWT validation enabled - using OpenSSL")
+    # JWT validation needs: libcurl, json-c, OpenSSL
+    FIND_PACKAGE(CURL REQUIRED)
+    FIND_PACKAGE(PkgConfig REQUIRED)
+    PKG_CHECK_MODULES(JSON_C REQUIRED json-c)
+    FIND_PACKAGE(OpenSSL REQUIRED)
 ELSE()
     MESSAGE(STATUS "TokenReview API validation enabled")
+    # TokenReview API needs: libcurl, json-c
+    FIND_PACKAGE(CURL REQUIRED)
+    FIND_PACKAGE(PkgConfig REQUIRED)
+    PKG_CHECK_MODULES(JSON_C REQUIRED json-c)
 ENDIF()
 
 # Compiler flags matching MariaDB plugin standards

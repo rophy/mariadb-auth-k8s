@@ -621,31 +621,26 @@ The test suite validates:
 
 ### Build Dependencies
 
-**Build-time (JWT validation):**
-- build-essential (gcc, g++)
-- cmake
-- pkg-config
-- libmariadb-dev
-- libcurl4-openssl-dev
-- libjson-c-dev
-- libssl-dev
+Each implementation has different dependency requirements:
 
-**Build-time (TokenReview API):**
-- build-essential (gcc, g++)
-- cmake
-- pkg-config
-- libmariadb-dev
-- libcurl4-openssl-dev
-- libjson-c-dev
+**Token Validator API (default, production):**
+- Build: gcc, cmake, pkg-config, libmariadb-dev, libcurl4-openssl-dev, libjson-c-dev
+- Runtime: libcurl4, libjson-c5
 
-**Runtime (JWT validation):**
-- libcurl4
-- libjson-c5
-- libssl3
+**JWT Validation (standalone, single-cluster):**
+- Build: gcc, cmake, pkg-config, libmariadb-dev, libcurl4-openssl-dev, libjson-c-dev, libssl-dev
+- Runtime: libcurl4, libjson-c5, libssl3
 
-**Runtime (TokenReview API):**
-- libcurl4
-- libjson-c5
+**TokenReview API (alternative):**
+- Build: gcc, cmake, pkg-config, libmariadb-dev, libcurl4-openssl-dev, libjson-c-dev
+- Runtime: libcurl4, libjson-c5
+
+**Common to all:**
+- libcurl (HTTP requests)
+- libjson-c (JSON parsing)
+
+**JWT-specific:**
+- OpenSSL (cryptographic signature verification)
 
 ### Build Options
 
