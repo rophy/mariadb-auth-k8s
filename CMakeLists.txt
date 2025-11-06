@@ -47,17 +47,17 @@ ADD_DEFINITIONS(-DMYSQL_DYNAMIC_PLUGIN)
 # Build server-side plugin as a module
 IF(USE_TOKEN_VALIDATOR_API)
     # Token Validator API client version - production, multi-cluster
-    ADD_LIBRARY(auth_k8s MODULE src/auth_k8s_api.c)
+    ADD_LIBRARY(auth_k8s MODULE src/auth_k8s_validator_api.c)
     TARGET_LINK_LIBRARIES(auth_k8s ${CURL_LIBRARIES} ${JSON_C_LIBRARIES})
     TARGET_INCLUDE_DIRECTORIES(auth_k8s PRIVATE ${CURL_INCLUDE_DIRS} ${JSON_C_INCLUDE_DIRS})
 ELSEIF(USE_JWT_VALIDATION)
     # JWT validation version - pure OpenSSL implementation
-    ADD_LIBRARY(auth_k8s MODULE src/auth_k8s_server_jwt.c src/k8s_jwt_validator.c)
+    ADD_LIBRARY(auth_k8s MODULE src/auth_k8s_jwt.c src/k8s_jwt_validator.c)
     TARGET_LINK_LIBRARIES(auth_k8s ${CURL_LIBRARIES} ${JSON_C_LIBRARIES} OpenSSL::SSL OpenSSL::Crypto)
     TARGET_INCLUDE_DIRECTORIES(auth_k8s PRIVATE ${CURL_INCLUDE_DIRS} ${JSON_C_INCLUDE_DIRS})
 ELSE()
     # TokenReview API version
-    ADD_LIBRARY(auth_k8s MODULE src/auth_k8s_server.c src/k8s_token_validator.c)
+    ADD_LIBRARY(auth_k8s MODULE src/auth_k8s_tokenreview.c src/k8s_token_validator.c)
     TARGET_LINK_LIBRARIES(auth_k8s ${CURL_LIBRARIES} ${JSON_C_LIBRARIES})
     TARGET_INCLUDE_DIRECTORIES(auth_k8s PRIVATE ${CURL_INCLUDE_DIRS} ${JSON_C_INCLUDE_DIRS})
 ENDIF()

@@ -243,13 +243,13 @@ mariadb-auth-k8s/
 ├── CMakeLists.txt                # Build configuration
 │
 ├── src/                          # MariaDB plugin source code (C)
-│   ├── auth_k8s_api.c            # API client plugin (Token Validator API)
-│   ├── auth_k8s_server.c         # Server plugin (TokenReview API)
-│   ├── k8s_token_validator.c     # TokenReview API client
-│   ├── k8s_token_validator.h     # TokenReview API interface
-│   ├── auth_k8s_server_jwt.c     # Server plugin (JWT validation)
+│   ├── auth_k8s_validator_api.c  # Token Validator API client plugin
+│   ├── auth_k8s_jwt.c            # JWT validation plugin
+│   ├── auth_k8s_tokenreview.c    # TokenReview API plugin
 │   ├── k8s_jwt_validator.c       # JWT validator with OIDC discovery
-│   └── k8s_jwt_validator.h       # JWT validator interface
+│   ├── k8s_jwt_validator.h       # JWT validator interface
+│   ├── k8s_token_validator.c     # TokenReview API client
+│   └── k8s_token_validator.h     # TokenReview API interface
 │
 ├── token-validator-api/          # Token Validator API service (Node.js)
 │   ├── Dockerfile                # API service container

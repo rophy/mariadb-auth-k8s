@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client-user1
+  namespace: mariadb-auth-test
+  labels:
+    app: client-user1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client-user1
+  template:
+    metadata:
+      labels:
+        app: client-user1
+    spec:
+      serviceAccountName: user1
+      containers:
+      - name: mysql-client
+        image: test-client:latest
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/bash", "-c", "sleep infinity"]
+        volumeMounts:
+        - name: serviceaccount-token
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          readOnly: true
+      volumes:
+      - name: serviceaccount-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: token
+              expirationSeconds: 3600
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client-user2
+  namespace: mariadb-auth-test
+  labels:
+    app: client-user2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client-user2
+  template:
+    metadata:
+      labels:
+        app: client-user2
+    spec:
+      serviceAccountName: user2
+      containers:
+      - name: app
+        image: test-client:latest
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/bash", "-c", "sleep infinity"]
+        volumeMounts:
+        - name: serviceaccount-token
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          readOnly: true
+      volumes:
+      - name: serviceaccount-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: token
+              expirationSeconds: 3600
