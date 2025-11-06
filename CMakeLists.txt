@@ -1,6 +1,9 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.5)
 PROJECT(mariadb_auth_k8s C)
 
+# Build option: Choose validation method
+OPTION(USE_JWT_VALIDATION "Use JWT validation instead of TokenReview API" ON)
+
 # Find MariaDB server-side plugin headers (downloaded from source)
 FIND_PATH(MARIADB_SERVER_INCLUDE_DIR
     NAMES mysql/plugin.h
@@ -20,10 +23,17 @@ MESSAGE(STATUS "Found MariaDB server headers: ${MARIADB_SERVER_INCLUDE_DIR}")
 # Include server headers
 INCLUDE_DIRECTORIES(${MARIADB_SERVER_INCLUDE_DIR})
 
-# Find required libraries for Kubernetes TokenReview
+# Find required libraries
 FIND_PACKAGE(CURL REQUIRED)
 FIND_PACKAGE(PkgConfig REQUIRED)
 PKG_CHECK_MODULES(JSON_C REQUIRED json-c)
+FIND_PACKAGE(OpenSSL REQUIRED)
+
+IF(USE_JWT_VALIDATION)
+    MESSAGE(STATUS "JWT validation enabled - using OpenSSL")
+ELSE()
+    MESSAGE(STATUS "TokenReview API validation enabled")
+ENDIF()
 
 # Compiler flags matching MariaDB plugin standards
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -fPIC")
@@ -32,11 +42,17 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GNU_SOURCE")
 ADD_DEFINITIONS(-DMYSQL_DYNAMIC_PLUGIN)
 
 # Build server-side plugin as a module
-ADD_LIBRARY(auth_k8s MODULE src/auth_k8s_server.c src/k8s_token_validator.c)
-
-# Link required libraries for TokenReview
-TARGET_LINK_LIBRARIES(auth_k8s ${CURL_LIBRARIES} ${JSON_C_LIBRARIES})
-TARGET_INCLUDE_DIRECTORIES(auth_k8s PRIVATE ${CURL_INCLUDE_DIRS} ${JSON_C_INCLUDE_DIRS})
+IF(USE_JWT_VALIDATION)
+    # JWT validation version - pure OpenSSL implementation
+    ADD_LIBRARY(auth_k8s MODULE src/auth_k8s_server_jwt.c src/k8s_jwt_validator.c)
+    TARGET_LINK_LIBRARIES(auth_k8s ${CURL_LIBRARIES} ${JSON_C_LIBRARIES} OpenSSL::SSL OpenSSL::Crypto)
+    TARGET_INCLUDE_DIRECTORIES(auth_k8s PRIVATE ${CURL_INCLUDE_DIRS} ${JSON_C_INCLUDE_DIRS})
+ELSE()
+    # TokenReview API version
+    ADD_LIBRARY(auth_k8s MODULE src/auth_k8s_server.c src/k8s_token_validator.c)
+    TARGET_LINK_LIBRARIES(auth_k8s ${CURL_LIBRARIES} ${JSON_C_LIBRARIES})
+    TARGET_INCLUDE_DIRECTORIES(auth_k8s PRIVATE ${CURL_INCLUDE_DIRS} ${JSON_C_INCLUDE_DIRS})
+ENDIF()
 
 # Remove the 'lib' prefix from the output file
 SET_TARGET_PROPERTIES(auth_k8s PROPERTIES PREFIX "")
@@ -67,6 +83,13 @@ MESSAGE(STATUS "==========================================")
 MESSAGE(STATUS "MariaDB K8s Auth Plugin Build Configuration")
 MESSAGE(STATUS "==========================================")
 MESSAGE(STATUS "Server plugin: auth_k8s.so")
+IF(USE_JWT_VALIDATION)
+    MESSAGE(STATUS "Validation method: JWT with OIDC discovery (OpenSSL)")
+    MESSAGE(STATUS "Dependencies: libcurl, libjson-c, OpenSSL")
+ELSE()
+    MESSAGE(STATUS "Validation method: TokenReview API")
+    MESSAGE(STATUS "Dependencies: libcurl, libjson-c")
+ENDIF()
 MESSAGE(STATUS "Install to: ${PLUGIN_DIR}")
 MESSAGE(STATUS "==========================================")
 MESSAGE(STATUS "")

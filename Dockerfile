@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     libmariadb-dev \
     libcurl4-openssl-dev \
     libjson-c-dev \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and extract MariaDB headers to /opt
