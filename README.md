@@ -5,17 +5,55 @@ A MariaDB authentication plugin that validates Kubernetes ServiceAccount tokens,
 ## Features
 
 - **Kubernetes-native authentication**: Uses ServiceAccount tokens instead of passwords
-- **Two validation methods**:
-  - **JWT validation** (default): Local cryptographic verification with OIDC discovery
+- **Three validation methods**:
+  - **Token Validator API** (recommended): Centralized multi-cluster validation service
+  - **JWT validation**: Local cryptographic verification with OIDC discovery
   - **TokenReview API**: Validates tokens against Kubernetes API server
-- **Namespace-scoped users**: Username format `namespace/serviceaccount`
+- **Multi-cluster support**: Authenticate users from multiple Kubernetes clusters
+- **Namespace-scoped users**: Username format `cluster_name/namespace/serviceaccount`
 - **Zero password management**: Tokens are automatically mounted by Kubernetes
 - **No client plugin required**: Uses built-in `mysql_clear_password` plugin
-- **Production-ready**: Built with libcurl, json-c, and OpenSSL
+- **Production-ready**: Built with Node.js (API), C (plugin), libcurl, json-c
 
 ## Architecture
 
-### JWT Validation (Default)
+### Token Validator API (Production - Recommended)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Kubernetes Cluster A (MariaDB + Token Validator API)       │
+│                                                             │
+│  ┌──────────────┐         ┌─────────────────────────────┐ │
+│  │ MariaDB Pod  │────────>│ Token Validator API         │ │
+│  │              │  HTTP   │ - JWT validation            │ │
+│  │ Auth Plugin  │         │ - OIDC discovery            │ │
+│  │ (280 lines)  │         │ - JWKS caching              │ │
+│  └──────────────┘         │ - Multi-cluster configs     │ │
+│                           └─────────────────────────────┘ │
+│                                      │                     │
+│                                      │ Fetches JWKS from   │
+│                                      ▼                     │
+│                           ┌─────────────────┐             │
+│                           │ K8s API Servers │             │
+│                           │ (Local + Remote)│             │
+│                           └─────────────────┘             │
+└─────────────────────────────────────────────────────────────┘
+                                     │
+                                     │ Validates tokens from
+                                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Kubernetes Cluster B (Client Applications)                 │
+│                                                             │
+│  ┌────────────────┐                                        │
+│  │ Client App Pod │──── JWT Token ───> MariaDB (Cluster A)│
+│  │ SA: ns/user1   │                                        │
+│  └────────────────┘                                        │
+└─────────────────────────────────────────────────────────────┘
+
+Centralized validation, multi-cluster support, operational simplicity
+```
+
+### JWT Validation (Standalone)
 
 ```
 ┌─────────────┐                    ┌──────────────┐
@@ -61,7 +99,33 @@ Local JWT signature verification (no API call per auth)
 
 ## Validation Methods
 
-### JWT Validation (Recommended - Default)
+### Token Validator API (Recommended - Production)
+
+**How it works:**
+- Centralized Node.js service validates JWT tokens
+- MariaDB plugin calls API via HTTP
+- API performs OIDC discovery and JWT signature verification
+- Supports multiple Kubernetes clusters with centralized configuration
+- JWKS caching shared across all MariaDB instances
+
+**Pros:**
+- **Multi-cluster**: Authenticate users from multiple Kubernetes clusters
+- **Simplified plugin**: ~280 lines vs 500+ lines (JWT plugin)
+- **Centralized config**: Add/remove clusters without restarting MariaDB
+- **Operational simplicity**: Token rotation, JWKS updates affect API only
+- **Shared caching**: JWKS cache shared across all MariaDB instances
+- **Scalable**: 3-replica deployment with load balancing
+
+**Cons:**
+- Additional service to deploy and maintain
+- Network hop adds ~5-10ms latency vs local validation
+- Requires Token Validator API deployment
+
+**When to use:** Production environments with multiple clusters or complex topology
+
+---
+
+### JWT Validation (Standalone)
 
 **How it works:**
 - Fetches OIDC configuration and JWKS public keys from Kubernetes API
@@ -70,16 +134,19 @@ Local JWT signature verification (no API call per auth)
 - No API call per authentication
 
 **Pros:**
-- **Fast**: Local cryptographic verification (~<1ms vs 5-10ms)
+- **Fast**: Local cryptographic verification (~<1ms)
 - **Scalable**: No API call per auth after JWKS cache is warm
 - **Reliable**: Works even if Kubernetes API is temporarily slow
 - **Single cluster**: Auto-configures for local cluster
 
 **Cons:**
-- More complex implementation
-- Requires OIDC issuer discovery endpoints (enabled by default in Kubernetes 1.21+)
+- More complex implementation (~500 lines)
+- Single cluster only
+- Requires OIDC issuer discovery endpoints (Kubernetes 1.21+)
 
-**When to use:** Production environments with high authentication frequency
+**When to use:** Single-cluster production environments
+
+---
 
 ### TokenReview API (Alternative)
 
@@ -117,10 +184,18 @@ make init
 
 ### 2. Build the Plugin
 
-**JWT Validation (default):**
+**Token Validator API (recommended):**
+```bash
+# Build with Token Validator API client
+make build-api
+
+# Output: build/auth_k8s.so
+```
+
+**JWT Validation (standalone):**
 ```bash
 # Build with JWT validation
-make build
+make build-jwt
 
 # Output: build/auth_k8s.so
 ```
@@ -128,8 +203,7 @@ make build
 **TokenReview API (alternative):**
 ```bash
 # Build with TokenReview API
-cmake -DUSE_JWT_VALIDATION=OFF build
-make build
+make build-tokenreview
 
 # Output: build/auth_k8s.so
 ```
@@ -137,14 +211,14 @@ make build
 ### 3. Deploy to Kubernetes
 
 ```bash
-# Build and deploy MariaDB with the plugin
-make deploy
+# Build images and deploy everything (Token Validator API + MariaDB + test clients)
+skaffold run
 ```
 
 ### 4. Test Authentication
 
 ```bash
-# Run automated tests
+# Wait for pods to be ready and run integration tests
 make test
 ```
 
@@ -180,14 +254,31 @@ mariadb-auth-k8s/
 ├── Makefile                      # Build automation
 ├── skaffold.yaml                 # Kubernetes deployment automation
 ├── CMakeLists.txt                # Build configuration
+├── IMPLEMENTATION_PLAN.md        # Token Validator API architecture docs
 │
-├── src/                          # Source code
+├── src/                          # MariaDB plugin source code (C)
+│   ├── auth_k8s_api.c            # API client plugin (Token Validator API)
 │   ├── auth_k8s_server.c         # Server plugin (TokenReview API)
 │   ├── k8s_token_validator.c     # TokenReview API client
 │   ├── k8s_token_validator.h     # TokenReview API interface
 │   ├── auth_k8s_server_jwt.c     # Server plugin (JWT validation)
 │   ├── k8s_jwt_validator.c       # JWT validator with OIDC discovery
 │   └── k8s_jwt_validator.h       # JWT validator interface
+│
+├── token-validator-api/          # Token Validator API service (Node.js)
+│   ├── Dockerfile                # API service container
+│   ├── package.json              # Node.js dependencies
+│   ├── src/
+│   │   ├── index.js              # Main entry point
+│   │   ├── server.js             # HTTP server (Express)
+│   │   ├── validator.js          # JWT validation logic
+│   │   ├── cluster-config.js     # Multi-cluster configuration
+│   │   ├── jwks-cache.js         # JWKS caching with TTL
+│   │   └── oidc-discovery.js     # OIDC discovery
+│   ├── test/
+│   │   └── validator.test.js     # Unit tests (Jest)
+│   └── config/
+│       └── clusters.example.yaml # Cluster configuration example
 │
 ├── scripts/                      # Scripts
 │   ├── download-headers.sh       # Download MariaDB headers
@@ -201,7 +292,14 @@ mariadb-auth-k8s/
 ├── k8s/                          # Kubernetes manifests
 │   ├── mariadb-deployment.yaml   # MariaDB Deployment and Service
 │   ├── rbac.yaml                 # RBAC for TokenReview API
-│   └── test-client.yaml          # Test client Deployments
+│   ├── test-client.yaml          # Test client Deployments
+│   ├── token-validator-*.yaml    # Token Validator API manifests
+│   │   ├── deployment.yaml       # API Deployment (3 replicas)
+│   │   ├── service.yaml          # API Service
+│   │   ├── serviceaccount.yaml   # API ServiceAccount & RBAC
+│   │   ├── configmap.yaml        # Cluster configurations
+│   │   ├── secrets.yaml.example  # External cluster credentials
+│   │   └── networkpolicy.yaml    # Network security policy
 │
 └── build/                        # Build artifacts (created by make build)
     └── auth_k8s.so               # Server plugin
@@ -210,20 +308,46 @@ mariadb-auth-k8s/
 ## Makefile Commands
 
 ```bash
-make init         # Download and package MariaDB server headers
-make build        # Build Docker image and extract plugin to ./build/
-make clean        # Clean build artifacts
-make test         # Run K8s ServiceAccount authentication tests
-make deploy       # Build and deploy to Kubernetes
-make undeploy     # Remove Kubernetes deployment
-make help         # Show available commands
+make init              # Download and package MariaDB server headers
+make build-api         # Build plugin with Token Validator API (production)
+make build-jwt         # Build plugin with JWT validation (standalone)
+make build-tokenreview # Build plugin with TokenReview API
+make clean             # Clean build artifacts
+make test              # Run integration tests (after skaffold run)
+make undeploy          # Remove Kubernetes deployment
+make help              # Show available commands
+```
+
+**Integration test workflow:**
+```bash
+# 1. Build images and deploy everything
+skaffold run
+
+# 2. Wait for pods and run tests
+make test
 ```
 
 ## Configuration
 
 ### Creating Users
 
-Users are created in the format `namespace/serviceaccount`:
+**Token Validator API format:** `cluster_name/namespace/serviceaccount`
+
+```sql
+-- User1: Full admin access
+CREATE USER 'local/mariadb-auth-test/user1'@'%' IDENTIFIED VIA auth_k8s;
+GRANT ALL PRIVILEGES ON *.* TO 'local/mariadb-auth-test/user1'@'%';
+
+-- User2: Limited access to testdb only
+CREATE USER 'local/mariadb-auth-test/user2'@'%' IDENTIFIED VIA auth_k8s;
+GRANT ALL PRIVILEGES ON testdb.* TO 'local/mariadb-auth-test/user2'@'%';
+
+-- User from external cluster
+CREATE USER 'production-us/app-ns/api-service'@'%' IDENTIFIED VIA auth_k8s;
+GRANT SELECT, INSERT, UPDATE ON app_db.* TO 'production-us/app-ns/api-service'@'%';
+```
+
+**JWT/TokenReview API format:** `namespace/serviceaccount`
 
 ```sql
 -- User1: Full admin access
@@ -239,12 +363,28 @@ GRANT ALL PRIVILEGES ON testdb.* TO 'mariadb-auth-test/user2'@'%';
 
 From a pod with ServiceAccount token:
 
+**Token Validator API:**
+```bash
+# Read ServiceAccount token
+SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+
+# Connect to MariaDB (send token as password)
+mysql -h mariadb -u 'cluster_name/namespace/serviceaccount' -p"$SA_TOKEN"
+
+# Example: local cluster
+mysql -h mariadb -u 'local/app-ns/api-service' -p"$SA_TOKEN"
+```
+
+**JWT/TokenReview API:**
 ```bash
 # Read ServiceAccount token
 SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
 
 # Connect to MariaDB (send token as password)
 mysql -h mariadb -u 'namespace/serviceaccount' -p"$SA_TOKEN"
+
+# Example
+mysql -h mariadb -u 'app-ns/api-service' -p"$SA_TOKEN"
 ```
 
 The ServiceAccount token is automatically mounted at:
