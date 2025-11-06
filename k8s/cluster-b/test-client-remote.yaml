@@ -1,0 +1,30 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: remote-user
+  namespace: remote-test
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: remote-client
+  namespace: remote-test
+  labels:
+    app: remote-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: remote-client
+  template:
+    metadata:
+      labels:
+        app: remote-client
+    spec:
+      serviceAccountName: remote-user
+      containers:
+      - name: client
+        image: test-client:latest
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/bash", "-c", "sleep infinity"]

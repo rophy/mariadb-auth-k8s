@@ -1,8 +1,9 @@
 apiVersion: skaffold/v4beta7
 kind: Config
 metadata:
-  name: mariadb-k8s-auth
+  name: mariadb-2clusters
 
+# Build configuration - builds images once for both clusters
 build:
   local:
     push: false
@@ -25,68 +26,40 @@ build:
       buildArgs:
         BUILDKIT_INLINE_CACHE: "1"
 
+# Deploy configuration - deploys to cluster-a only
+deploy:
+  kubeContext: kind-cluster-a
+  kubectl: {}
+
 manifests:
   rawYaml:
-  - k8s/mariadb-deployment.yaml  # Contains namespace definition
-  - k8s/rbac.yaml
-  - k8s/token-validator-serviceaccount.yaml
-  - k8s/token-validator-configmap.yaml
-  - k8s/token-validator-deployment.yaml
-  - k8s/token-validator-service.yaml
-  - k8s/token-validator-networkpolicy.yaml
-  - k8s/test-client.yaml
+  # Cluster-A: MariaDB + Token Validator API (multi-cluster mode)
+  - k8s/cluster-a/namespace.yaml
+  - k8s/cluster-a/rbac.yaml
+  - k8s/cluster-a/mariadb-nodeport.yaml  # MariaDB deployment
+  - k8s/cluster-a/test-clients.yaml      # Test clients for local testing
+  - k8s/cluster-a/token-validator-serviceaccount.yaml
+  - k8s/cluster-a/token-validator-configmap.yaml
+  - k8s/cluster-a/token-validator-deployment.yaml
+  - k8s/cluster-a/token-validator-service.yaml
+  - k8s/cluster-a/token-validator-networkpolicy.yaml
 
+---
+apiVersion: skaffold/v4beta7
+kind: Config
+metadata:
+  name: cluster-b-client
+
+# Use images built by the main config
+build:
+  artifacts: []
+
+# Deploy to cluster-b
 deploy:
+  kubeContext: kind-cluster-b
   kubectl: {}
-  statusCheck: true
-  statusCheckDeadlineSeconds: 300
-  logs:
-    prefix: podAndContainer
 
-portForward:
-- resourceType: service
-  resourceName: mariadb
-  namespace: mariadb-auth-test
-  port: 3306
-  localPort: 3306
-
-profiles:
-- name: dev
-  activation:
-  - command: dev
-  build:
-    artifacts:
-    - image: mariadb-server
-      docker:
-        dockerfile: Dockerfile.mariadb
-      sync:
-        manual:
-        - src: "build/*.so"
-          dest: /usr/lib/mysql/plugin/
-    - image: test-client
-      docker:
-        dockerfile: Dockerfile.client
-  manifests:
-    rawYaml:
-    - k8s/mariadb-deployment.yaml
-    - k8s/test-client.yaml
-  deploy:
-    kubectl: {}
-
-- name: debug
-  activation:
-  - command: debug
-  build:
-    artifacts:
-    - image: mariadb-server
-      docker:
-        dockerfile: Dockerfile.mariadb
-        buildArgs:
-          BUILDKIT_INLINE_CACHE: "1"
-    - image: test-client
-      docker:
-        dockerfile: Dockerfile.client
-  patches:
-  - op: add
-    path: /build/artifacts/0/docker/buildArgs/DEBUG
-    value: "1"
+manifests:
+  rawYaml:
+  - k8s/cluster-b/namespace.yaml
+  - k8s/cluster-b/test-client-remote.yaml

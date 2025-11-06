@@ -1,3 +1,18 @@
+---
+# ServiceAccounts for test clients in cluster-a
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: user1
+  namespace: mariadb-auth-test
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: user2
+  namespace: mariadb-auth-test
+---
+# Test client deployments
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,21 +32,10 @@ spec:
     spec:
       serviceAccountName: user1
       containers:
-      - name: mysql-client
+      - name: client
         image: test-client:latest
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c", "sleep infinity"]
-        volumeMounts:
-        - name: serviceaccount-token
-          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
-          readOnly: true
-      volumes:
-      - name: serviceaccount-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              path: token
-              expirationSeconds: 3600
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -52,18 +56,7 @@ spec:
     spec:
       serviceAccountName: user2
       containers:
-      - name: app
+      - name: client
         image: test-client:latest
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c", "sleep infinity"]
-        volumeMounts:
-        - name: serviceaccount-token
-          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
-          readOnly: true
-      volumes:
-      - name: serviceaccount-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              path: token
-              expirationSeconds: 3600

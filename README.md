@@ -27,7 +27,7 @@ graph TB
     end
 
     subgraph ClusterA["Kubernetes Cluster A (MariaDB + Token Validator API)"]
-        MariaDB["MariaDB Pod<br/>Auth Plugin<br/>(280 lines)"]
+        MariaDB["MariaDB Pod<br/>Auth Plugin"]
         API["Token Validator API<br/>• JWT validation<br/>• OIDC discovery<br/>• JWKS caching<br/>• Multi-cluster configs"]
         K8sAPIA["K8s API Server A"]
 
@@ -158,77 +158,77 @@ sequenceDiagram
 ### Prerequisites
 
 - Docker
-- Kubernetes cluster (minikube, kind, or cloud provider)
+- kind (Kubernetes in Docker)
 - kubectl configured
 - skaffold (for Kubernetes deployment)
 
-### 1. Download MariaDB Headers
+### Multi-Cluster Testing (Recommended)
+
+The project is configured for multi-cluster testing by default, demonstrating cross-cluster authentication:
 
 ```bash
-# Download and package MariaDB server headers (one-time setup)
-make init
-```
+# 1. Create two kind clusters (one-time setup)
+make kind
 
-### 2. Build the Plugin
+# 2. Deploy everything (MariaDB + Token Validator API to cluster-a, test clients to both clusters)
+make deploy
 
-**Token Validator API (recommended):**
-```bash
-# Build with Token Validator API client
-make build-api
-
-# Output: build/auth_k8s.so
-```
-
-**JWT Validation (standalone):**
-```bash
-# Build with JWT validation
-make build-jwt
-
-# Output: build/auth_k8s.so
-```
-
-**TokenReview API (alternative):**
-```bash
-# Build with TokenReview API
-make build-tokenreview
-
-# Output: build/auth_k8s.so
-```
-
-### 3. Deploy to Kubernetes
-
-```bash
-# Build images and deploy everything (Token Validator API + MariaDB + test clients)
-skaffold run
-```
-
-### 4. Test Authentication
-
-```bash
-# Wait for pods to be ready and run integration tests
+# 3. Run multi-cluster authentication tests
 make test
+
+# 4. Clean up when done
+make destroy
+```
+
+**Quick start:**
+```bash
+make deploy && make test
 ```
 
 Expected output:
 ```
 ==========================================
-K8s ServiceAccount Authentication Tests
+Multi-Cluster Authentication Tests
 ==========================================
 
 ==========================================
-Testing User1 - Full Admin Access
+Test 1: Local Cluster Authentication
 ==========================================
-
-✅ User1 authentication SUCCESSFUL!
+✅ Test 1 PASSED: Local cluster authentication works
 
 ==========================================
-Testing User2 - Limited Access (testdb only)
+Test 2: Direct Cross-Cluster Authentication
 ==========================================
+✅ Test 2 PASSED: Direct cross-cluster authentication works!
 
-✅ User2 authentication SUCCESSFUL!
-
-✅ All tests PASSED!
 ==========================================
+Test 3: Permission Verification
+==========================================
+✅ Test 3 PASSED: Permission restrictions work correctly
+
+==========================================
+✅ All Multi-Cluster Tests PASSED!
+==========================================
+```
+
+### Building the Plugin Manually
+
+If you need to build the plugin separately:
+
+```bash
+# Download MariaDB headers (one-time setup)
+make init
+
+# Build with Token Validator API (production, multi-cluster)
+make build-api
+
+# Build with JWT validation (standalone, single-cluster)
+make build-jwt
+
+# Build with TokenReview API (alternative)
+make build-tokenreview
+
+# Output: build/auth_k8s.so
 ```
 
 ## Project Structure
@@ -238,10 +238,9 @@ mariadb-auth-k8s/
 ├── Dockerfile                    # Build environment for plugin
 ├── Dockerfile.mariadb            # Production MariaDB image with plugin
 ├── Dockerfile.client             # Test client image
-├── Makefile                      # Build automation
-├── skaffold.yaml                 # Kubernetes deployment automation
+├── Makefile                      # Build automation (multi-cluster workflow)
+├── skaffold.yaml                 # Multi-cluster deployment (cluster-a + cluster-b)
 ├── CMakeLists.txt                # Build configuration
-├── IMPLEMENTATION_PLAN.md        # Token Validator API architecture docs
 │
 ├── src/                          # MariaDB plugin source code (C)
 │   ├── auth_k8s_api.c            # API client plugin (Token Validator API)
@@ -269,24 +268,30 @@ mariadb-auth-k8s/
 │
 ├── scripts/                      # Scripts
 │   ├── download-headers.sh       # Download MariaDB headers
-│   └── test-auth.sh              # Authentication tests
+│   ├── setup-kind-clusters.sh    # Create kind clusters
+│   ├── setup-multicluster.sh     # Configure multi-cluster authentication
+│   └── test.sh                   # Multi-cluster authentication tests
 │
 ├── include/                      # MariaDB server headers (tarball)
 │   └── mariadb-10.6.22-headers.tar.gz
 │
 ├── init-auth-plugin.sh           # Plugin installation and user setup script
 │
-├── k8s/                          # Kubernetes manifests
-│   ├── mariadb-deployment.yaml   # MariaDB Deployment and Service
-│   ├── rbac.yaml                 # RBAC for TokenReview API
-│   ├── test-client.yaml          # Test client Deployments
-│   ├── token-validator-*.yaml    # Token Validator API manifests
-│   │   ├── deployment.yaml       # API Deployment (3 replicas)
-│   │   ├── service.yaml          # API Service
-│   │   ├── serviceaccount.yaml   # API ServiceAccount & RBAC
-│   │   ├── configmap.yaml        # Cluster configurations
-│   │   ├── secrets.yaml.example  # External cluster credentials
-│   │   └── networkpolicy.yaml    # Network security policy
+├── k8s/                          # Kubernetes manifests (multi-cluster)
+│   ├── cluster-a/                # Cluster A: MariaDB + Token Validator API
+│   │   ├── namespace.yaml        # Namespace definition
+│   │   ├── rbac.yaml             # RBAC for TokenReview API
+│   │   ├── mariadb-nodeport.yaml # MariaDB with NodePort for cross-cluster access
+│   │   ├── test-clients.yaml     # Local test clients
+│   │   └── token-validator-*.yaml # Token Validator API manifests
+│   │       ├── deployment.yaml   # API Deployment (3 replicas)
+│   │       ├── service.yaml      # API Service
+│   │       ├── serviceaccount.yaml # API ServiceAccount & RBAC
+│   │       ├── configmap.yaml    # Cluster configurations
+│   │       └── networkpolicy.yaml # Network security policy
+│   └── cluster-b/                # Cluster B: Remote test client
+│       ├── namespace.yaml        # Namespace definition
+│       └── test-client-remote.yaml # Remote test client
 │
 └── build/                        # Build artifacts (created by make build)
     └── auth_k8s.so               # Server plugin
@@ -294,25 +299,44 @@ mariadb-auth-k8s/
 
 ## Makefile Commands
 
+### Build Targets
 ```bash
 make init              # Download and package MariaDB server headers
+make build             # Build plugin (JWT validation, default)
 make build-api         # Build plugin with Token Validator API (production)
-make build-jwt         # Build plugin with JWT validation (standalone)
+make build-jwt         # Build plugin with JWT validation
 make build-tokenreview # Build plugin with TokenReview API
 make clean             # Clean build artifacts
-make test              # Run integration tests (after skaffold run)
-make undeploy          # Remove Kubernetes deployment
+```
+
+### Multi-Cluster Environment
+```bash
+make kind              # Create two kind clusters (cluster-a, cluster-b)
+make deploy            # Setup clusters and deploy everything
+make test              # Run multi-cluster authentication tests
+make destroy           # Destroy everything (deployments + clusters)
 make help              # Show available commands
 ```
 
-**Integration test workflow:**
+**Multi-cluster test workflow:**
 ```bash
-# 1. Build images and deploy everything
-skaffold run
+# Complete workflow
+make kind              # Create clusters (one-time)
+make deploy            # Deploy everything
+make test              # Run tests
+make destroy           # Clean up
 
-# 2. Wait for pods and run tests
-make test
+# Quick iteration (clusters already exist)
+make deploy && make test
 ```
+
+### Architecture
+
+The default setup creates a multi-cluster environment:
+- **cluster-a**: Hosts MariaDB + Token Validator API
+- **cluster-b**: Hosts remote test client
+
+This demonstrates cross-cluster authentication where a pod in cluster-b authenticates to MariaDB in cluster-a using its ServiceAccount token, validated by the Token Validator API.
 
 ## Configuration
 
@@ -564,19 +588,25 @@ kubectl exec -n mariadb-auth-test deployment/client-user1 -- bash -c '
 '
 ```
 
-### Running Tests
+### Running Multi-Cluster Tests
 
 ```bash
-# Deploy to Kubernetes first
-make deploy
+# Complete workflow
+make kind              # Create clusters (one-time)
+make deploy            # Deploy everything
+make test              # Run multi-cluster tests
 
-# Wait for pods to be ready
-kubectl wait --for=condition=ready deployment -l app=client-user1 -n mariadb-auth-test --timeout=60s
-kubectl wait --for=condition=ready deployment -l app=client-user2 -n mariadb-auth-test --timeout=60s
+# Quick iteration (clusters already exist)
+make deploy && make test
 
-# Run tests
-make test
+# Clean up
+make destroy
 ```
+
+The test suite validates:
+1. **Local cluster authentication** - Pod in cluster-a authenticates to MariaDB in cluster-a
+2. **Cross-cluster authentication** - Pod in cluster-b authenticates to MariaDB in cluster-a via NodePort
+3. **Permission enforcement** - Limited users can only access authorized databases
 
 ## Technical Details
 

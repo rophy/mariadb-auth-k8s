@@ -1,4 +1,4 @@
-.PHONY: init build build-api build-jwt build-tokenreview clean test deploy undeploy help
+.PHONY: init build build-api build-jwt build-tokenreview clean kind deploy test destroy help
 
 # MariaDB version for headers
 MARIADB_VERSION := 10.6.22
@@ -63,44 +63,93 @@ clean:
 	rm -rf build/
 	@echo "Clean complete"
 
-# Test authentication in Kubernetes (run after skaffold run)
-test:
-	@echo "Waiting for Token Validator API to be ready..."
-	@kubectl wait --for=condition=ready pod -l app=token-validator-api -n mariadb-auth-test --timeout=120s
-	@echo "Waiting for MariaDB to be ready..."
-	@kubectl wait --for=condition=ready pod -l app=mariadb -n mariadb-auth-test --timeout=120s
-	@echo "Waiting for test clients to be ready..."
-	@kubectl wait --for=condition=ready pod -l app=client-user1 -n mariadb-auth-test --timeout=60s
-	@kubectl wait --for=condition=ready pod -l app=client-user2 -n mariadb-auth-test --timeout=60s
+# Create kind clusters for multi-cluster testing
+kind:
+	@echo "=========================================="
+	@echo "Setting up Kind Clusters"
+	@echo "=========================================="
+	@./scripts/setup-kind-clusters.sh
+
+# Deploy to multi-cluster environment
+deploy:
+	@echo "=========================================="
+	@echo "Deploying to Multi-Cluster Environment"
+	@echo "=========================================="
 	@echo ""
-	@echo "Running integration tests..."
-	@./scripts/test-auth.sh
+	@echo "Step 1: Ensuring kind clusters exist..."
+	@./scripts/setup-kind-clusters.sh
+	@echo ""
+	@echo "Step 2: Building and deploying to cluster-a..."
+	@kubectl config use-context kind-cluster-a
+	@skaffold run --kube-context kind-cluster-a
+	@echo ""
+	@echo "Step 3: Deploying test client to cluster-b..."
+	@kubectl config use-context kind-cluster-b
+	@kind load docker-image test-client:latest --name cluster-b
+	@kubectl apply -f k8s/cluster-b/namespace.yaml
+	@kubectl apply -f k8s/cluster-b/test-client-remote.yaml
+	@echo "Waiting for remote-client to be ready..."
+	@kubectl wait --for=condition=ready pod -l app=remote-client -n remote-test --timeout=120s || echo "⚠️  Timeout waiting for remote-client"
+	@echo ""
+	@echo "Step 4: Configuring multi-cluster authentication..."
+	@./scripts/setup-multicluster.sh
+	@echo ""
+	@echo "✅ Deployment complete!"
+	@echo ""
+	@echo "Next: Run 'make test' to verify authentication"
 
-# Build and deploy to Kubernetes
-deploy: build
-	@echo "Building and deploying to Kubernetes..."
-	skaffold run
+# Run multi-cluster authentication tests
+test:
+	@echo "=========================================="
+	@echo "Running Multi-Cluster Authentication Tests"
+	@echo "=========================================="
+	@./scripts/test.sh
 
-# Clean up Kubernetes deployment
-undeploy:
-	@echo "Removing Kubernetes deployment..."
-	skaffold delete
+# Destroy kind clusters and all deployments
+destroy:
+	@echo "=========================================="
+	@echo "Destroying Multi-Cluster Environment"
+	@echo "=========================================="
+	@echo ""
+	@echo "Removing deployments from cluster-a..."
+	@kubectl config use-context kind-cluster-a 2>/dev/null && skaffold delete || echo "Cluster-a not found or already cleaned"
+	@echo ""
+	@echo "Removing deployments from cluster-b..."
+	@kubectl config use-context kind-cluster-b 2>/dev/null && kubectl delete namespace remote-test --ignore-not-found || echo "Cluster-b not found or already cleaned"
+	@echo ""
+	@echo "Deleting kind clusters..."
+	@kind delete cluster --name cluster-a 2>/dev/null || echo "Cluster-a already deleted"
+	@kind delete cluster --name cluster-b 2>/dev/null || echo "Cluster-b already deleted"
+	@echo ""
+	@echo "✅ Destroy complete!"
 
 # Show help
 help:
-	@echo "MariaDB K8s Auth Plugin - Makefile targets:"
+	@echo "MariaDB K8s Auth Plugin - Multi-Cluster Testing"
 	@echo ""
+	@echo "Build targets:"
 	@echo "  make init              - Download and package MariaDB server headers"
 	@echo "  make build             - Build plugin (JWT validation, default)"
 	@echo "  make build-api         - Build plugin with Token Validator API (production)"
 	@echo "  make build-jwt         - Build plugin with JWT validation"
 	@echo "  make build-tokenreview - Build plugin with TokenReview API"
 	@echo "  make clean             - Clean build artifacts"
-	@echo "  make deploy            - Build and deploy to Kubernetes (skaffold run)"
-	@echo "  make test              - Run integration tests (after skaffold run)"
-	@echo "  make undeploy          - Remove Kubernetes deployment"
-	@echo "  make help              - Show this help message"
 	@echo ""
-	@echo "Integration test workflow:"
-	@echo "  1. skaffold run        - Build images and deploy everything"
-	@echo "  2. make test           - Wait for pods and run tests"
+	@echo "Multi-cluster environment:"
+	@echo "  make kind              - Create two kind clusters (cluster-a, cluster-b)"
+	@echo "  make deploy            - Setup clusters and deploy everything"
+	@echo "  make test              - Run multi-cluster authentication tests"
+	@echo "  make destroy           - Destroy everything (deployments + clusters)"
+	@echo ""
+	@echo "Workflow:"
+	@echo "  1. make kind           - Create clusters (one-time setup)"
+	@echo "  2. make deploy         - Deploy MariaDB, Token Validator, test clients"
+	@echo "  3. make test           - Run authentication tests"
+	@echo "  4. make destroy        - Destroy clusters when done"
+	@echo ""
+	@echo "Quick start:"
+	@echo "  make deploy && make test"
+	@echo ""
+	@echo "Note: The default setup uses multi-cluster architecture with:"
+	@echo "  - cluster-a: MariaDB + Token Validator API"
+	@echo "  - cluster-b: Remote test client"

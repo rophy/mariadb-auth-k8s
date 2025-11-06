@@ -57,7 +57,9 @@ class TokenValidator {
       }
 
       // Get OIDC configuration
-      const oidcConfig = await this.oidcDiscovery.getConfiguration(decoded.iss || cluster.issuer, cluster);
+      // For remote clusters with api_server configured, use that URL instead of issuer
+      const discoveryUrl = cluster.api_server || decoded.iss || cluster.issuer;
+      const oidcConfig = await this.oidcDiscovery.getConfiguration(discoveryUrl, cluster);
 
       // Get JWKS
       const jwks = await this.jwksCache.getJWKS(oidcConfig.jwks_uri, cluster);
