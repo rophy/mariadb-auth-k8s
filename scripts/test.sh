@@ -32,6 +32,7 @@ echo ""
 kubectl config use-context kind-${CLUSTER_A} > /dev/null
 
 echo "Testing user: local/mariadb-auth-test/user1..."
+# Use mounted projected token (1 hour TTL configured in deployment)
 kubectl exec -n ${NAMESPACE_A} deployment/client-user1 -- bash -c '
     SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
     mysql -h mariadb -u "local/mariadb-auth-test/user1" -p"$SA_TOKEN" -e "
@@ -86,15 +87,40 @@ echo "✅ Test 2 PASSED: Direct cross-cluster authentication works!"
 echo "   Pod in cluster-b successfully connected to MariaDB in cluster-a via NodePort"
 echo ""
 
-# Test 3: Permission verification
+# Test 3: Token TTL validation (reject long-lived tokens)
 echo "=========================================="
-echo "Test 3: Permission Verification"
+echo "Test 3: Token TTL Validation"
+echo "=========================================="
+echo ""
+
+kubectl config use-context kind-${CLUSTER_A} > /dev/null
+
+echo "Testing that tokens exceeding max_token_ttl are rejected..."
+echo "Creating a 2-hour token (exceeds max_token_ttl=3600)..."
+TOKEN_2H=$(kubectl create token user1 -n ${NAMESPACE_A} --duration=2h)
+
+echo "Attempting authentication with 2-hour token (should fail)..."
+kubectl run test-long-token --image=mysql:8.0 --rm -i --restart=Never -n ${NAMESPACE_A} -- \
+    mysql --enable-cleartext-plugin -h mariadb -u "local/mariadb-auth-test/user1" -p"${TOKEN_2H}" -e "SELECT 1;" 2>&1 | \
+    grep -q "Access denied" && echo "✅ 2-hour token rejected (as expected)" || {
+    echo "❌ Test 3 FAILED: 2-hour token should have been rejected"
+    exit 1
+}
+
+echo ""
+echo "✅ Test 3 PASSED: Token TTL validation works correctly"
+echo ""
+
+# Test 4: Permission verification
+echo "=========================================="
+echo "Test 4: Permission Verification"
 echo "=========================================="
 echo ""
 
 kubectl config use-context kind-${CLUSTER_A} > /dev/null
 
 echo "Testing that local/mariadb-auth-test/user2 has limited access..."
+# Use mounted projected token (1 hour TTL configured in deployment)
 kubectl exec -n ${NAMESPACE_A} deployment/client-user2 -- bash -c '
     SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
 
@@ -104,12 +130,12 @@ kubectl exec -n ${NAMESPACE_A} deployment/client-user2 -- bash -c '
     # Should fail
     mysql -h mariadb -u "local/mariadb-auth-test/user2" -p"$SA_TOKEN" -e "USE mysql; SELECT 1;" 2>&1 | grep -q "Access denied" && echo "✅ Cannot access mysql (as expected)"
 ' || {
-    echo "❌ Test 3 FAILED"
+    echo "❌ Test 4 FAILED"
     exit 1
 }
 
 echo ""
-echo "✅ Test 3 PASSED: Permission restrictions work correctly"
+echo "✅ Test 4 PASSED: Permission restrictions work correctly"
 echo ""
 
 # Summary
@@ -120,6 +146,7 @@ echo ""
 echo "Summary:"
 echo "  ✅ Local cluster authentication (cluster-a → cluster-a)"
 echo "  ✅ Remote cluster authentication (cluster-b token → cluster-a)"
+echo "  ✅ Token TTL validation (2-hour tokens rejected)"
 echo "  ✅ Permission restrictions enforced"
 echo ""
 echo "Multi-cluster authentication is working correctly!"

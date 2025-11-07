@@ -49,6 +49,7 @@ ENDIF()
 # Compiler flags matching MariaDB plugin standards
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -fPIC")
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GNU_SOURCE")
+
 # Define MYSQL_DYNAMIC_PLUGIN for dynamic library loading
 ADD_DEFINITIONS(-DMYSQL_DYNAMIC_PLUGIN)
 

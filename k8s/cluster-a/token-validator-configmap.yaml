@@ -9,6 +9,9 @@ data:
       # Local cluster - auto-detected
       - name: local
         auto: true
+        # Maximum allowed token TTL in seconds (default: 3600 = 1 hour)
+        # Tokens with longer TTL will be rejected
+        max_token_ttl: 3600
 
       # External clusters can be added here
       # Example:
@@ -17,3 +20,4 @@ data:
       #   api_server: https://10.20.30.40:6443
       #   ca_cert_path: /etc/secrets/prod-us-ca.crt
       #   token_path: /etc/secrets/prod-us-token
+      #   max_token_ttl: 7200  # 2 hours
