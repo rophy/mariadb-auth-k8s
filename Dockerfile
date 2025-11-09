@@ -1,4 +1,4 @@
-FROM debian:bookworm
+FROM debian:bookworm AS builder
 
 # Build arguments
 ARG CMAKE_OPTS="-DUSE_JWT_VALIDATION=ON"
@@ -37,5 +37,13 @@ RUN mkdir -p build && \
     echo 'Build complete! Artifacts:' && \
     ls -lh *.so
 
-# Default command
-CMD ["/bin/bash"]
+# Distribute the plugin with a minimal image.
+FROM busybox
+
+COPY --from=builder /workspace/build/auth_k8s.so /mariadb/auth_k8s.so
+
+# Create an entrypoint to hint user that this is a distribution-only image.
+RUN echo -e '#!/bin/sh\n\necho "This image is intended for distributing the auth_k8s.so plugin only."\necho "Please copy /mariadb/auth_k8s.so to your MariaDB plugin directory."' > /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

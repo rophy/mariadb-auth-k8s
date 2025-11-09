@@ -17,7 +17,7 @@ build:
 	@echo "Extracting plugin to ./build/..."
 	@mkdir -p build
 	@CONTAINER_ID=$$(docker create mariadb-auth-k8s:latest) && \
-		docker cp $$CONTAINER_ID:/workspace/build/auth_k8s.so ./build/auth_k8s.so && \
+		docker cp $$CONTAINER_ID:/mariadb/auth_k8s.so ./build/auth_k8s.so && \
 		docker rm $$CONTAINER_ID > /dev/null
 	@echo "✓ Plugin extracted to ./build/auth_k8s.so"
 
