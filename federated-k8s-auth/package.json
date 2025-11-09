@@ -1,7 +1,7 @@
 {
   "name": "federated-k8s-auth",
   "version": "1.0.0",
-  "description": "Federated K8s Auth for MariaDB multi-cluster authentication",
+  "description": "Federated K8s Auth for multi-cluster authentication",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
@@ -12,8 +12,7 @@
   "keywords": [
     "kubernetes",
     "jwt",
-    "authentication",
-    "mariadb"
+    "authentication"
   ],
   "author": "",
   "license": "MIT",
