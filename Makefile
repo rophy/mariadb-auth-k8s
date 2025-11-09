@@ -1,5 +1,8 @@
 .PHONY: init build build-api build-jwt build-tokenreview clean kind deploy test destroy help
 
+# Default target
+.DEFAULT_GOAL := help
+
 # MariaDB version for headers
 MARIADB_VERSION := 10.6.22
 
