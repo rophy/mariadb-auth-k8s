@@ -69,9 +69,7 @@ class ClusterConfig {
         api_server: 'https://kubernetes.default.svc',
         ca_cert_path: caPath,
         token_path: tokenPath,
-        auto: true,
-        // Default: 1 hour (can be overridden by config file)
-        max_token_ttl: 3600
+        auto: true
       };
     } catch (error) {
       console.error('[ClusterConfig] Failed to auto-detect local cluster:', error.message);
@@ -93,14 +91,8 @@ class ClusterConfig {
       }
 
       for (const cluster of config.clusters) {
-        // Handle auto-detection entries (merge with auto-detected config)
+        // Skip auto-detection entries (already handled)
         if (cluster.auto) {
-          const existingCluster = this.clusters.get(cluster.name || 'local');
-          if (existingCluster) {
-            // Merge config file settings with auto-detected settings
-            Object.assign(existingCluster, cluster);
-            console.log(`[ClusterConfig] Updated auto-detected cluster: ${existingCluster.name}`);
-          }
           continue;
         }
 

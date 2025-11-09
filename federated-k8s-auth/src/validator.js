@@ -52,18 +52,6 @@ class TokenValidator {
         };
       }
 
-      // Check maximum allowed token TTL (security control)
-      if (cluster.max_token_ttl && decoded.iat && decoded.exp) {
-        const tokenLifetime = decoded.exp - decoded.iat;
-        if (tokenLifetime > cluster.max_token_ttl) {
-          return {
-            authenticated: false,
-            error: 'token_ttl_exceeded',
-            message: `Token TTL (${tokenLifetime}s) exceeds maximum allowed (${cluster.max_token_ttl}s)`
-          };
-        }
-      }
-
       // Check issuer (warn if mismatch, but don't reject)
       if (cluster.issuer && decoded.iss !== cluster.issuer) {
         console.warn(`[Validator] Issuer mismatch for cluster ${clusterName}: expected ${cluster.issuer}, got ${decoded.iss}`);
@@ -113,7 +101,8 @@ class TokenValidator {
       return {
         authenticated: true,
         username: username,
-        expiration: verified.payload.exp || null
+        expiration: verified.payload.exp || null,
+        issued_at: verified.payload.iat || null
       };
     } catch (error) {
       console.error('[Validator] Validation error:', error);

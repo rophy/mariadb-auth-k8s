@@ -25,6 +25,6 @@ spec:
       serviceAccountName: remote-user
       containers:
       - name: client
-        image: test-client:latest
+        image: test-client
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c", "sleep infinity"]

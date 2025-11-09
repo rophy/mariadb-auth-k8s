@@ -57,7 +57,7 @@ echo ""
 echo "Testing DIRECT connection from cluster-b to cluster-a MariaDB:"
 echo "  - Extract ServiceAccount token from cluster-b"
 echo "  - Connect directly to MariaDB via NodePort ($CLUSTER_A_IP:$MARIADB_NODEPORT)"
-echo "  - Token Validator API validates against cluster-b's K8s API"
+echo "  - Federated K8s Auth validates against cluster-b's K8s API"
 echo ""
 
 kubectl config use-context kind-${CLUSTER_B} > /dev/null
@@ -95,8 +95,8 @@ echo ""
 
 kubectl config use-context kind-${CLUSTER_A} > /dev/null
 
-echo "Testing that tokens exceeding max_token_ttl are rejected..."
-echo "Creating a 2-hour token (exceeds max_token_ttl=3600)..."
+echo "Testing that tokens exceeding MAX_TOKEN_TTL are rejected..."
+echo "Creating a 2-hour token (exceeds MAX_TOKEN_TTL=3600)..."
 TOKEN_2H=$(kubectl create token user1 -n ${NAMESPACE_A} --duration=2h)
 
 echo "Attempting authentication with 2-hour token (should fail)..."

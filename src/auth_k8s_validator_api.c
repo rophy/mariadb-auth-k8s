@@ -21,6 +21,9 @@
 #define FEDERATED_K8S_AUTH_URL "http://federated-k8s-auth.default.svc.cluster.local:8080/api/v1/validate"
 #endif
 
+/* Default maximum token TTL (1 hour) */
+#define DEFAULT_MAX_TOKEN_TTL 3600
+
 /* Buffer for HTTP response */
 typedef struct {
     char *data;
@@ -72,6 +75,21 @@ static char* extract_cluster_name(const char *username)
     cluster_name[len] = '\0';
 
     return cluster_name;
+}
+
+/*
+ * Get maximum token TTL from environment or use default
+ */
+static long get_max_token_ttl(void)
+{
+    const char *env_ttl = getenv("MAX_TOKEN_TTL");
+    if (env_ttl) {
+        long ttl = atol(env_ttl);
+        if (ttl > 0) {
+            return ttl;
+        }
+    }
+    return DEFAULT_MAX_TOKEN_TTL;
 }
 
 /*
@@ -153,6 +171,29 @@ static int validate_token_via_api(const char *cluster_name, const char *token, c
                 struct json_object *username_obj;
                 if (json_object_object_get_ex(response_json, "username", &username_obj)) {
                     const char *username = json_object_get_string(username_obj);
+
+                    /* Check token TTL if expiration and issued_at are provided */
+                    struct json_object *exp_obj, *iat_obj;
+                    if (json_object_object_get_ex(response_json, "expiration", &exp_obj) &&
+                        json_object_object_get_ex(response_json, "issued_at", &iat_obj)) {
+                        long exp = json_object_get_int64(exp_obj);
+                        long iat = json_object_get_int64(iat_obj);
+
+                        if (exp > 0 && iat > 0) {
+                            long token_lifetime = exp - iat;
+                            long max_ttl = get_max_token_ttl();
+
+                            if (token_lifetime > max_ttl) {
+                                fprintf(stderr, "K8s Auth API: ❌ Token TTL (%lds) exceeds maximum allowed (%lds)\n",
+                                        token_lifetime, max_ttl);
+                                json_object_put(response_json);
+                                goto cleanup;
+                            }
+
+                            fprintf(stderr, "K8s Auth API: Token TTL: %lds (max: %lds)\n", token_lifetime, max_ttl);
+                        }
+                    }
+
                     if (authenticated_username) {
                         *authenticated_username = strdup(username);
                     }

@@ -34,6 +34,8 @@ spec:
           value: "testdb"
         - name: FEDERATED_K8S_AUTH_URL
           value: "http://federated-k8s-auth.mariadb-auth-test.svc.cluster.local:8080/api/v1/validate"
+        - name: MAX_TOKEN_TTL
+          value: "3600"
         volumeMounts:
         - name: mysql-data
           mountPath: /var/lib/mysql

@@ -70,19 +70,10 @@ deploy:
 	@echo "Step 1: Ensuring kind clusters exist..."
 	@./scripts/setup-kind-clusters.sh
 	@echo ""
-	@echo "Step 2: Building and deploying to cluster-a..."
-	@kubectl config use-context kind-cluster-a
-	@skaffold run --kube-context kind-cluster-a
+	@echo "Step 2: Building and deploying with skaffold..."
+	@skaffold run
 	@echo ""
-	@echo "Step 3: Deploying test client to cluster-b..."
-	@kubectl config use-context kind-cluster-b
-	@kind load docker-image test-client:latest --name cluster-b
-	@kubectl apply -f k8s/cluster-b/namespace.yaml
-	@kubectl apply -f k8s/cluster-b/test-client-remote.yaml
-	@echo "Waiting for remote-client to be ready..."
-	@kubectl wait --for=condition=ready pod -l app=remote-client -n remote-test --timeout=120s || echo "⚠️  Timeout waiting for remote-client"
-	@echo ""
-	@echo "Step 4: Configuring multi-cluster authentication..."
+	@echo "Step 3: Configuring multi-cluster authentication..."
 	@./scripts/setup-multicluster.sh
 	@echo ""
 	@echo "✅ Deployment complete!"
@@ -101,12 +92,6 @@ destroy:
 	@echo "=========================================="
 	@echo "Destroying Multi-Cluster Environment"
 	@echo "=========================================="
-	@echo ""
-	@echo "Removing deployments from cluster-a..."
-	@kubectl config use-context kind-cluster-a 2>/dev/null && skaffold delete || echo "Cluster-a not found or already cleaned"
-	@echo ""
-	@echo "Removing deployments from cluster-b..."
-	@kubectl config use-context kind-cluster-b 2>/dev/null && kubectl delete namespace remote-test --ignore-not-found || echo "Cluster-b not found or already cleaned"
 	@echo ""
 	@echo "Deleting kind clusters..."
 	@kind delete cluster --name cluster-a 2>/dev/null || echo "Cluster-a already deleted"

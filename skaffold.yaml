@@ -50,9 +50,10 @@ kind: Config
 metadata:
   name: cluster-b-client
 
-# Use images built by the main config
-build:
-  artifacts: []
+# Depend on main config for images
+requires:
+  - configs: ["mariadb-2clusters"]
+    activeProfiles: []
 
 # Deploy to cluster-b
 deploy:
