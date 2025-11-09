@@ -10,9 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "jwt_crypto.h"
-
-/* Plugin version */
-#define PLUGIN_VERSION 0x0300
+#include "version.h"
 
 /*
  * Plugin initialization

@@ -1,5 +1,8 @@
 FROM debian:bookworm AS builder
 
+# Build arguments
+ARG VERSION=dev
+
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -26,6 +29,11 @@ WORKDIR /workspace
 COPY src/ /workspace/src/
 COPY CMakeLists.txt /workspace/
 COPY include/build-all-plugins.sh /workspace/
+COPY include/generate-version.sh /workspace/
+
+# Generate version.h
+RUN chmod +x generate-version.sh && \
+    ./generate-version.sh "${VERSION}" src/version.h
 
 # Build all three plugin variants
 RUN chmod +x build-all-plugins.sh && ./build-all-plugins.sh

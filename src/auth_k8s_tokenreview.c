@@ -9,9 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "tokenreview_api.h"
-
-/* Plugin version */
-#define PLUGIN_VERSION 0x0200
+#include "version.h"
 
 /* Feature flag: Set to 1 to enable TokenReview validation, 0 for POC mode */
 #ifndef ENABLE_TOKEN_VALIDATION

@@ -12,9 +12,7 @@
 #include <curl/curl.h>
 #include <json-c/json.h>
 #include <mysql/plugin_auth.h>
-
-/* Plugin version */
-#define PLUGIN_VERSION 0x0300
+#include "version.h"
 
 /* Default Federated K8s Auth API endpoint */
 #ifndef FEDERATED_K8S_AUTH_URL

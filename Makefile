@@ -3,6 +3,9 @@
 # Default target
 .DEFAULT_GOAL := help
 
+# Plugin version (M.N format)
+VERSION := 1.0
+
 # MariaDB version for headers
 MARIADB_VERSION := 10.6.22
 
@@ -14,41 +17,41 @@ init:
 # Build the plugin (compiles all variants inside Docker image and extracts federated_api)
 # Default: Feoderated Auth API (production, multi-cluster)
 build:
-	@echo "Building MariaDB K8s Auth Plugin Docker image (all variants)..."
-	docker build -t mariadb-auth-k8s:latest .
+	@echo "Building MariaDB K8s Auth Plugin Docker image v$(VERSION) (all variants)..."
+	docker build --build-arg VERSION=$(VERSION) -t mariadb-auth-k8s:$(VERSION) -t mariadb-auth-k8s:latest .
 	@echo "Extracting Feoderated Auth API plugin to ./build/..."
 	@mkdir -p build
 	@CONTAINER_ID=$$(docker create mariadb-auth-k8s:latest) && \
 		docker cp $$CONTAINER_ID:/mariadb/auth_k8s_federated_api.so ./build/auth_k8s.so && \
 		docker rm $$CONTAINER_ID > /dev/null
-	@echo "✓ Plugin extracted to ./build/auth_k8s.so (Feoderated Auth API variant)"
+	@echo "✓ Plugin v$(VERSION) extracted to ./build/auth_k8s.so (Feoderated Auth API variant)"
 
 # Extract Feoderated Auth API variant
 build-api: build
 
 # Extract JWT validation variant
 build-jwt:
-	@echo "Building MariaDB K8s Auth Plugin Docker image (all variants)..."
-	docker build -t mariadb-auth-k8s:latest .
+	@echo "Building MariaDB K8s Auth Plugin Docker image v$(VERSION) (all variants)..."
+	docker build --build-arg VERSION=$(VERSION) -t mariadb-auth-k8s:$(VERSION) -t mariadb-auth-k8s:latest .
 	@echo "✓ All plugin variants compiled inside Docker image"
 	@echo "Extracting JWT plugin to ./build/..."
 	@mkdir -p build
 	@CONTAINER_ID=$$(docker create mariadb-auth-k8s:latest) && \
 		docker cp $$CONTAINER_ID:/mariadb/auth_k8s_jwt.so ./build/auth_k8s.so && \
 		docker rm $$CONTAINER_ID > /dev/null
-	@echo "✓ Plugin extracted to ./build/auth_k8s.so (JWT variant)"
+	@echo "✓ Plugin v$(VERSION) extracted to ./build/auth_k8s.so (JWT variant)"
 
 # Extract TokenReview API variant
 build-tokenreview:
-	@echo "Building MariaDB K8s Auth Plugin Docker image (all variants)..."
-	docker build -t mariadb-auth-k8s:latest .
+	@echo "Building MariaDB K8s Auth Plugin Docker image v$(VERSION) (all variants)..."
+	docker build --build-arg VERSION=$(VERSION) -t mariadb-auth-k8s:$(VERSION) -t mariadb-auth-k8s:latest .
 	@echo "✓ All plugin variants compiled inside Docker image"
 	@echo "Extracting TokenReview plugin to ./build/..."
 	@mkdir -p build
 	@CONTAINER_ID=$$(docker create mariadb-auth-k8s:latest) && \
 		docker cp $$CONTAINER_ID:/mariadb/auth_k8s_tokenreview.so ./build/auth_k8s.so && \
 		docker rm $$CONTAINER_ID > /dev/null
-	@echo "✓ Plugin extracted to ./build/auth_k8s.so (TokenReview variant)"
+	@echo "✓ Plugin v$(VERSION) extracted to ./build/auth_k8s.so (TokenReview variant)"
 
 # Clean build artifacts
 clean:
