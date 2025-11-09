@@ -11,7 +11,6 @@ describe('Server HTTP Status Codes', () => {
     clusterConfig = new ClusterConfig();
     clusterConfig.clusters.set('test-cluster', {
       name: 'test-cluster',
-      issuer: 'https://kubernetes.test.local',
       api_server: 'https://test-api:6443'
     });
 

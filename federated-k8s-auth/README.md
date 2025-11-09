@@ -122,17 +122,21 @@ Create a `clusters.yaml` file:
 
 ```yaml
 clusters:
-  # Auto-detect local cluster
-  - name: local
-    auto: true
+  # Note: Local cluster is auto-detected when running in Kubernetes
+  # (no configuration needed)
 
   # External cluster
   - name: production-us
-    issuer: https://kubernetes.default.svc.cluster.local
     api_server: https://10.20.30.40:6443
     ca_cert_path: /etc/secrets/prod-us-ca.crt
     token_path: /etc/secrets/prod-us-token
 ```
+
+**Configuration fields:**
+- `name` - Unique cluster identifier
+- `api_server` - Kubernetes API server URL (for OIDC discovery)
+- `ca_cert_path` - Path to CA certificate for API server (optional)
+- `token_path` - Path to service account token for authentication (optional)
 
 ## Deployment
 

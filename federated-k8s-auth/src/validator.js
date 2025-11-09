@@ -52,14 +52,16 @@ class TokenValidator {
         };
       }
 
-      // Check issuer (warn if mismatch, but don't reject)
-      if (cluster.issuer && decoded.iss !== cluster.issuer) {
-        console.warn(`[Validator] Issuer mismatch for cluster ${clusterName}: expected ${cluster.issuer}, got ${decoded.iss}`);
-      }
-
       // Get OIDC configuration
-      // For remote clusters with api_server configured, use that URL instead of issuer
-      const discoveryUrl = cluster.api_server || decoded.iss || cluster.issuer;
+      // Use api_server for OIDC discovery
+      const discoveryUrl = cluster.api_server || decoded.iss;
+      if (!discoveryUrl) {
+        return {
+          authenticated: false,
+          error: 'invalid_config',
+          message: `No api_server configured and no issuer in token for cluster: ${clusterName}`
+        };
+      }
       const oidcConfig = await this.oidcDiscovery.getConfiguration(discoveryUrl, cluster);
 
       // Get JWKS

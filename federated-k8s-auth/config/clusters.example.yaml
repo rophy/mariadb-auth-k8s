@@ -1,18 +1,15 @@
 clusters:
-  # Local cluster - auto-detected when running in Kubernetes
-  - name: local
-    auto: true
+  # Note: Local cluster is auto-detected when running in Kubernetes
+  # (no configuration needed)
 
   # External cluster example
   - name: production-us
-    issuer: https://kubernetes.default.svc.cluster.local
     api_server: https://10.20.30.40:6443
     ca_cert_path: /etc/secrets/prod-us-ca.crt
     token_path: /etc/secrets/prod-us-token
 
   # Another external cluster
   - name: production-eu
-    issuer: https://kubernetes.default.svc.cluster.local
     api_server: https://10.20.30.50:6443
     ca_cert_path: /etc/secrets/prod-eu-ca.crt
     token_path: /etc/secrets/prod-eu-token

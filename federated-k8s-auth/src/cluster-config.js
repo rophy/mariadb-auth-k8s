@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
-const { jwtVerify, decodeJwt } = require('jose');
+const { decodeJwt } = require('jose');
 
 /**
  * Load and manage cluster configurations
@@ -59,14 +59,13 @@ class ClusterConfig {
     }
 
     try {
-      // Read token to extract issuer
+      // Read token to extract issuer for api_server
       const token = fs.readFileSync(tokenPath, 'utf8').trim();
       const decoded = decodeJwt(token);
 
       return {
         name: 'local',
-        issuer: decoded.iss,
-        api_server: 'https://kubernetes.default.svc',
+        api_server: decoded.iss,
         ca_cert_path: caPath,
         token_path: tokenPath,
         auto: true
@@ -102,9 +101,9 @@ class ClusterConfig {
           continue;
         }
 
-        // Only require api_server and issuer for external clusters
-        if (!cluster.api_server || !cluster.issuer) {
-          console.warn(`[ClusterConfig] Skipping cluster ${cluster.name}: missing api_server or issuer`);
+        // Only require api_server for external clusters
+        if (!cluster.api_server) {
+          console.warn(`[ClusterConfig] Skipping cluster ${cluster.name}: missing api_server`);
           continue;
         }
 
