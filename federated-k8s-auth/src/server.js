@@ -61,6 +61,8 @@ function createServer(clusterConfig) {
     // Return appropriate HTTP status
     if (result.authenticated) {
       res.status(200).json(result);
+    } else if (result.error === 'cluster_not_found') {
+      res.status(400).json(result);
     } else if (result.error === 'internal_error') {
       res.status(500).json(result);
     } else {
