@@ -48,14 +48,15 @@ echo "Step 1/4: Cloning MariaDB repository (branch: ${MARIADB_BRANCH})..."
 git clone --depth 1 --branch "${MARIADB_BRANCH}" \
     https://github.com/MariaDB/server.git "${TEMP_DIR}"
 
-# Create include directory structure
+# Create include directory structure in temp location
 echo "Step 2/4: Copying headers..."
-mkdir -p include
-cp -r "${TEMP_DIR}/include/"* include/
+HEADERS_DIR="${TEMP_DIR}/headers"
+mkdir -p "${HEADERS_DIR}/include"
+cp -r "${TEMP_DIR}/include/"* "${HEADERS_DIR}/include/"
 
 # Process mysql_version.h template if it exists
 echo "Step 3/4: Processing version template..."
-cd include
+cd "${HEADERS_DIR}/include"
 if [ -f mysql_version.h.in ]; then
     # Extract version components
     VERSION_MAJOR=$(echo "${MARIADB_VERSION}" | cut -d. -f1)
@@ -72,19 +73,15 @@ if [ -f mysql_version.h.in ]; then
          s/@MACHINE_TYPE@/\"x86_64\"/g" \
         mysql_version.h.in > mysql_version.h
 fi
-cd ..
+cd -
 
-# Create tarball (in temp location to avoid self-reference issue)
+# Create tarball
 echo "Step 4/4: Creating tarball..."
-TEMP_TARBALL="${TEMP_DIR}/headers.tar.gz"
-tar -czf "${TEMP_TARBALL}" include/
-
-# Cleanup extracted headers
-rm -rf include/
-
-# Move tarball to final location
 mkdir -p "${OUTPUT_DIR}"
-mv "${TEMP_TARBALL}" "${OUTPUT_FILE}"
+cd "${HEADERS_DIR}"
+tar -czf "$(pwd)/headers.tar.gz" include/
+cd -
+mv "${HEADERS_DIR}/headers.tar.gz" "${OUTPUT_FILE}"
 
 # Summary
 TARBALL_SIZE=$(du -h "${OUTPUT_FILE}" | cut -f1)

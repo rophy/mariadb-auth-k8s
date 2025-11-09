@@ -1,0 +1,17 @@
+#!/bin/sh
+
+echo "MariaDB K8s Auth Plugin - Distribution Image"
+echo ""
+echo "Available plugins:"
+echo "  - auth_k8s_federated_api.so  (Token Validator API - multi-cluster)"
+echo "  - auth_k8s_jwt.so            (JWT validation with OIDC discovery)"
+echo "  - auth_k8s_tokenreview.so    (Kubernetes TokenReview API)"
+echo ""
+echo "Usage:"
+echo "  1. Choose the plugin variant you need"
+echo "  2. Copy it from /mariadb/ to your MariaDB plugin directory"
+echo "  3. Rename it to auth_k8s.so"
+echo ""
+echo "Example:"
+echo "  docker cp container:/mariadb/auth_k8s_federated_api.so /usr/lib/mysql/plugin/auth_k8s.so"
+echo ""

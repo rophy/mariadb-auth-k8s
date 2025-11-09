@@ -8,45 +8,44 @@ init:
 	@echo "Downloading MariaDB server headers..."
 	@./scripts/download-headers.sh $(MARIADB_VERSION)
 
-# Build the plugin (compiles inside Docker image and extracts to ./build)
-# Default: Token Validator API (production, multi-cluster)
+# Build the plugin (compiles all variants inside Docker image and extracts federated_api)
+# Default: Feoderated Auth API (production, multi-cluster)
 build:
-	@echo "Building MariaDB K8s Auth Plugin Docker image (Token Validator API)..."
-	docker build --build-arg CMAKE_OPTS="-DUSE_TOKEN_VALIDATOR_API=ON" -t mariadb-auth-k8s:latest .
-	@echo "✓ Plugin compiled inside Docker image"
-	@echo "Extracting plugin to ./build/..."
+	@echo "Building MariaDB K8s Auth Plugin Docker image (all variants)..."
+	docker build -t mariadb-auth-k8s:latest .
+	@echo "Extracting Feoderated Auth API plugin to ./build/..."
 	@mkdir -p build
 	@CONTAINER_ID=$$(docker create mariadb-auth-k8s:latest) && \
-		docker cp $$CONTAINER_ID:/mariadb/auth_k8s.so ./build/auth_k8s.so && \
+		docker cp $$CONTAINER_ID:/mariadb/auth_k8s_federated_api.so ./build/auth_k8s.so && \
 		docker rm $$CONTAINER_ID > /dev/null
-	@echo "✓ Plugin extracted to ./build/auth_k8s.so"
+	@echo "✓ Plugin extracted to ./build/auth_k8s.so (Feoderated Auth API variant)"
 
-# Alias for build (Token Validator API)
+# Extract Feoderated Auth API variant
 build-api: build
 
-# Build with JWT validation (default)
+# Extract JWT validation variant
 build-jwt:
-	@echo "Building MariaDB K8s Auth Plugin Docker image (JWT validation)..."
-	docker build --build-arg CMAKE_OPTS="-DUSE_JWT_VALIDATION=ON" -t mariadb-auth-k8s:jwt .
-	@echo "✓ Plugin compiled inside Docker image"
-	@echo "Extracting plugin to ./build/..."
+	@echo "Building MariaDB K8s Auth Plugin Docker image (all variants)..."
+	docker build -t mariadb-auth-k8s:latest .
+	@echo "✓ All plugin variants compiled inside Docker image"
+	@echo "Extracting JWT plugin to ./build/..."
 	@mkdir -p build
-	@CONTAINER_ID=$$(docker create mariadb-auth-k8s:jwt) && \
-		docker cp $$CONTAINER_ID:/workspace/build/auth_k8s.so ./build/auth_k8s.so && \
+	@CONTAINER_ID=$$(docker create mariadb-auth-k8s:latest) && \
+		docker cp $$CONTAINER_ID:/mariadb/auth_k8s_jwt.so ./build/auth_k8s.so && \
 		docker rm $$CONTAINER_ID > /dev/null
-	@echo "✓ Plugin extracted to ./build/auth_k8s.so"
+	@echo "✓ Plugin extracted to ./build/auth_k8s.so (JWT variant)"
 
-# Build with TokenReview API
+# Extract TokenReview API variant
 build-tokenreview:
-	@echo "Building MariaDB K8s Auth Plugin Docker image (TokenReview API)..."
-	docker build --build-arg CMAKE_OPTS="-DUSE_JWT_VALIDATION=OFF" -t mariadb-auth-k8s:tokenreview .
-	@echo "✓ Plugin compiled inside Docker image"
-	@echo "Extracting plugin to ./build/..."
+	@echo "Building MariaDB K8s Auth Plugin Docker image (all variants)..."
+	docker build -t mariadb-auth-k8s:latest .
+	@echo "✓ All plugin variants compiled inside Docker image"
+	@echo "Extracting TokenReview plugin to ./build/..."
 	@mkdir -p build
-	@CONTAINER_ID=$$(docker create mariadb-auth-k8s:tokenreview) && \
-		docker cp $$CONTAINER_ID:/workspace/build/auth_k8s.so ./build/auth_k8s.so && \
+	@CONTAINER_ID=$$(docker create mariadb-auth-k8s:latest) && \
+		docker cp $$CONTAINER_ID:/mariadb/auth_k8s_tokenreview.so ./build/auth_k8s.so && \
 		docker rm $$CONTAINER_ID > /dev/null
-	@echo "✓ Plugin extracted to ./build/auth_k8s.so"
+	@echo "✓ Plugin extracted to ./build/auth_k8s.so (TokenReview variant)"
 
 # Clean build artifacts
 clean:
@@ -105,7 +104,7 @@ help:
 	@echo ""
 	@echo "Build targets:"
 	@echo "  make init              - Download and package MariaDB server headers"
-	@echo "  make build             - Build plugin (Token Validator API, default)"
+	@echo "  make build             - Build plugin (Feoderated Auth API, default)"
 	@echo "  make build-api         - Alias for 'make build'"
 	@echo "  make build-jwt         - Build plugin with JWT validation"
 	@echo "  make build-tokenreview - Build plugin with TokenReview API"
@@ -127,5 +126,5 @@ help:
 	@echo "  make deploy && make test"
 	@echo ""
 	@echo "Note: The default setup uses multi-cluster architecture with:"
-	@echo "  - cluster-a: MariaDB + Token Validator API"
+	@echo "  - cluster-a: MariaDB + Feoderated Auth API"
 	@echo "  - cluster-b: Remote test client"

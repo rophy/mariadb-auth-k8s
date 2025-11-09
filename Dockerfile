@@ -1,8 +1,5 @@
 FROM debian:bookworm AS builder
 
-# Build arguments
-ARG CMAKE_OPTS="-DUSE_JWT_VALIDATION=ON"
-
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -28,22 +25,17 @@ WORKDIR /workspace
 # Copy source files
 COPY src/ /workspace/src/
 COPY CMakeLists.txt /workspace/
+COPY include/build-all-plugins.sh /workspace/
 
-# Build the plugin
-RUN mkdir -p build && \
-    cd build && \
-    cmake ${CMAKE_OPTS} .. && \
-    make && \
-    echo 'Build complete! Artifacts:' && \
-    ls -lh *.so
+# Build all three plugin variants
+RUN chmod +x build-all-plugins.sh && ./build-all-plugins.sh
 
 # Distribute the plugin with a minimal image.
 FROM busybox
 
-COPY --from=builder /workspace/build/auth_k8s.so /mariadb/auth_k8s.so
+COPY --from=builder /output/*.so /mariadb/
+COPY include/entrypoint.sh /entrypoint.sh
 
-# Create an entrypoint to hint user that this is a distribution-only image.
-RUN echo -e '#!/bin/sh\n\necho "This image is intended for distributing the auth_k8s.so plugin only."\necho "Please copy /mariadb/auth_k8s.so to your MariaDB plugin directory."' > /entrypoint.sh && \
-    chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

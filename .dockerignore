@@ -1,11 +1,3 @@
-# Build artifacts (except .so files needed for Dockerfile.mariadb)
-build/**/*
-!build/*.so
-
-# MariaDB headers (ignore extracted headers, but allow tarball)
-include/**/*
-!include/*.tar.gz
-
 .git/
 .vscode/
 .devcontainer/
@@ -13,10 +5,3 @@ include/**/*
 *.swo
 *~
 README.md
-DEVCONTAINER_SETUP.md
-TEST_RESULTS.md
-KUBERNETES_TESTING.md
-WHY_LIBMARIADB_DEV_NOT_ENOUGH.md
-test.sh
-check_headers.sh
-IMPLEMENTATION_PLAN.md
