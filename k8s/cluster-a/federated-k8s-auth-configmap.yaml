@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: token-validator-config
+  name: federated-k8s-auth-config
   namespace: mariadb-auth-test
 data:
   clusters.yaml: |

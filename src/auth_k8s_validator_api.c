@@ -1,8 +1,9 @@
 /*
  * MariaDB Kubernetes ServiceAccount Authentication Plugin - API Client
  *
- * Validates ServiceAccount tokens by calling Token Validator API.
- * This is a simplified plugin that delegates JWT validation to a separate service.
+ * Validates ServiceAccount tokens by calling Federated K8s Auth service.
+ * This plugin delegates JWT validation to a separate service that federates
+ * authentication across multiple Kubernetes clusters.
  */
 
 #include <string.h>
@@ -15,9 +16,9 @@
 /* Plugin version */
 #define PLUGIN_VERSION 0x0300
 
-/* Default Token Validator API endpoint */
-#ifndef TOKEN_VALIDATOR_API_URL
-#define TOKEN_VALIDATOR_API_URL "http://token-validator-api.default.svc.cluster.local:8080/api/v1/validate"
+/* Default Federated K8s Auth API endpoint */
+#ifndef FEDERATED_K8S_AUTH_URL
+#define FEDERATED_K8S_AUTH_URL "http://federated-k8s-auth.default.svc.cluster.local:8080/api/v1/validate"
 #endif
 
 /* Buffer for HTTP response */
@@ -74,7 +75,7 @@ static char* extract_cluster_name(const char *username)
 }
 
 /*
- * Call Token Validator API to validate token
+ * Call Federated K8s Auth API to validate token
  * Returns: 1 on success (authenticated), 0 on failure
  * Sets authenticated_username if provided
  */
@@ -86,9 +87,9 @@ static int validate_token_via_api(const char *cluster_name, const char *token, c
     int result = 0;
 
     /* Get API URL from environment or use default */
-    const char *api_url = getenv("TOKEN_VALIDATOR_API_URL");
+    const char *api_url = getenv("FEDERATED_K8S_AUTH_URL");
     if (!api_url) {
-        api_url = TOKEN_VALIDATOR_API_URL;
+        api_url = FEDERATED_K8S_AUTH_URL;
     }
 
     fprintf(stderr, "K8s Auth API: Validating token via %s\n", api_url);
@@ -290,7 +291,7 @@ mysql_declare_plugin(auth_k8s)
     &auth_k8s_handler,
     "auth_k8s",
     "MariaDB K8s Auth Plugin Contributors",
-    "Kubernetes ServiceAccount Authentication via Token Validator API",
+    "Kubernetes ServiceAccount Authentication via Federated K8s Auth",
     PLUGIN_LICENSE_GPL,
     NULL,                 /* Plugin init */
     NULL,                 /* Plugin deinit */

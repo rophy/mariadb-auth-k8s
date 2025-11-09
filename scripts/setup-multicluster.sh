@@ -61,8 +61,8 @@ timeout 60s bash -c "until kubectl get namespace ${NAMESPACE_A} > /dev/null 2>&1
 }
 
 # Create or update secret with cluster-b credentials
-kubectl delete secret token-validator-remote-clusters -n ${NAMESPACE_A} 2>/dev/null || true
-kubectl create secret generic token-validator-remote-clusters \
+kubectl delete secret federated-k8s-auth-remote-clusters -n ${NAMESPACE_A} 2>/dev/null || true
+kubectl create secret generic federated-k8s-auth-remote-clusters \
   --from-file=cluster-b-ca.crt="$CA_FILE" \
   --from-file=cluster-b-token="$TOKEN_FILE" \
   -n ${NAMESPACE_A}
@@ -73,7 +73,7 @@ kubectl apply -f - <<EOF
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: token-validator-config
+  name: federated-k8s-auth-config
   namespace: ${NAMESPACE_A}
 data:
   clusters.yaml: |
@@ -91,25 +91,25 @@ data:
 EOF
 echo "✅ ConfigMap updated"
 
-# Patch Token Validator API deployment to use the secret
+# Patch Federated K8s Auth deployment to use the secret
 echo ""
-echo "Updating Token Validator API deployment..."
-kubectl patch deployment token-validator-api -n ${NAMESPACE_A} --type=json -p='[
-  {"op": "replace", "path": "/spec/template/spec/volumes/1/secret/secretName", "value":"token-validator-remote-clusters"},
+echo "Updating Federated K8s Auth deployment..."
+kubectl patch deployment federated-k8s-auth -n ${NAMESPACE_A} --type=json -p='[
+  {"op": "replace", "path": "/spec/template/spec/volumes/1/secret/secretName", "value":"federated-k8s-auth-remote-clusters"},
   {"op": "replace", "path": "/spec/template/spec/volumes/1/secret/optional", "value":false}
 ]' 2>/dev/null || {
     echo "⚠️  Note: Secret volume may already be configured"
 }
 
-# Wait for Token Validator API to be ready
-echo "Waiting for Token Validator API to restart..."
-kubectl rollout status deployment/token-validator-api -n ${NAMESPACE_A} --timeout=120s
+# Wait for Federated K8s Auth to be ready
+echo "Waiting for Federated K8s Auth to restart..."
+kubectl rollout status deployment/federated-k8s-auth -n ${NAMESPACE_A} --timeout=120s
 
-# Verify Token Validator API sees both clusters
+# Verify Federated K8s Auth sees both clusters
 echo ""
-echo "Verifying Token Validator API configuration..."
+echo "Verifying Federated K8s Auth configuration..."
 sleep 5
-kubectl logs -n ${NAMESPACE_A} -l app=token-validator-api --tail=10 | grep -E "Loaded.*cluster" || {
+kubectl logs -n ${NAMESPACE_A} -l app=federated-k8s-auth --tail=10 | grep -E "Loaded.*cluster" || {
     echo "⚠️  Could not verify cluster configuration in logs"
 }
 
@@ -148,4 +148,3 @@ echo "  - local/mariadb-auth-test/user1 (full access)"
 echo "  - local/mariadb-auth-test/user2 (limited access)"
 echo "  - cluster-b/remote-test/remote-user (full access)"
 echo ""
-echo "Next: Run 'make test-2clusters-verify' to test authentication"

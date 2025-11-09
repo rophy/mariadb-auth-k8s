@@ -13,7 +13,7 @@ RUN npm ci --only=production
 COPY src/ ./src/
 
 # Create config directory
-RUN mkdir -p /etc/token-validator
+RUN mkdir -p /etc/federated-k8s-auth
 
 # Run as non-root user
 USER node

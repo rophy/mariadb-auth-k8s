@@ -1,17 +1,17 @@
-# Implementation Plan: Token Validator API Architecture
+# Implementation Plan: Federated K8s Auth Architecture
 
 ## Overview
 
-Refactor the MariaDB Kubernetes authentication system to use a centralized Token Validator API. This architecture separates the complex JWT validation logic from the MariaDB plugin, enabling better multi-cluster support and operational simplicity.
+Refactor the MariaDB Kubernetes authentication system to use a centralized Federated K8s Auth. This architecture separates the complex JWT validation logic from the MariaDB plugin, enabling better multi-cluster support and operational simplicity.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Kubernetes Cluster A (MariaDB + Token Validator API)       │
+│ Kubernetes Cluster A (MariaDB + Federated K8s Auth)       │
 │                                                             │
 │  ┌──────────────┐         ┌─────────────────────────────┐ │
-│  │ MariaDB Pod  │────────>│ Token Validator API         │ │
+│  │ MariaDB Pod  │────────>│ Federated K8s Auth         │ │
 │  │              │  HTTP   │ - JWT validation            │ │
 │  │ Auth Plugin  │         │ - OIDC discovery            │ │
 │  │ (Simplified) │         │ - JWKS caching              │ │
@@ -47,7 +47,7 @@ Refactor the MariaDB Kubernetes authentication system to use a centralized Token
 **Solution:**
 - MariaDB username MUST include cluster name: `cluster_name/namespace/serviceaccount`
 - `clusters.yaml` maps cluster names to issuer/API server/credentials
-- Token Validator API validates token against the cluster specified by name
+- Federated K8s Auth validates token against the cluster specified by name
 
 **Example:**
 ```sql
@@ -62,7 +62,7 @@ CREATE USER 'production-us/app-ns/user1'@'%' IDENTIFIED VIA auth_k8s;
 
 ### 2. No API Authentication (v1)
 
-**Decision:** Token Validator API has no authentication in initial version
+**Decision:** Federated K8s Auth has no authentication in initial version
 
 **Rationale:**
 - Deployed in same cluster as MariaDB
@@ -94,7 +94,7 @@ cmake ..  # or -DUSE_TOKEN_REVIEW=ON
 
 ### 4. Auto-detect Local Cluster
 
-**Decision:** Token Validator API automatically configures local cluster
+**Decision:** Federated K8s Auth automatically configures local cluster
 
 **How:**
 - Detect when running in Kubernetes pod (check `/var/run/secrets/kubernetes.io/serviceaccount/`)
@@ -148,7 +148,7 @@ HTTP 500 Internal Server Error
 
 ## Implementation Stages
 
-### Stage 1: Token Validator API (Node.js)
+### Stage 1: Federated K8s Auth (Node.js)
 **Goal:** Create standalone HTTP API for token validation
 **Success Criteria:**
 - API validates JWT tokens using OIDC discovery + JWKS
@@ -157,7 +157,7 @@ HTTP 500 Internal Server Error
 - Returns username in format: `cluster_name/namespace/serviceaccount`
 
 **Tasks:**
-1. Create `token-validator-api/` folder structure
+1. Create `federated-k8s-auth/` folder structure
 2. Implement Node.js HTTP server (Express or Fastify)
 3. Implement JWT validation logic:
    - Parse JWT header/payload
@@ -176,7 +176,7 @@ HTTP 500 Internal Server Error
 
 **Files:**
 ```
-token-validator-api/
+federated-k8s-auth/
 ├── package.json
 ├── package-lock.json
 ├── Dockerfile
@@ -235,7 +235,7 @@ GET  /api/v1/clusters      - List configured clusters (debug)
 ---
 
 ### Stage 2: Kubernetes Deployment Manifests
-**Goal:** Deploy Token Validator API in Kubernetes
+**Goal:** Deploy Federated K8s Auth in Kubernetes
 **Success Criteria:**
 - API runs as Deployment with multiple replicas
 - Exposes Service for MariaDB to access
@@ -306,10 +306,10 @@ data:
 ---
 
 ### Stage 3: Simplified MariaDB Auth Plugin (API Client)
-**Goal:** Create new MariaDB plugin that calls Token Validator API
+**Goal:** Create new MariaDB plugin that calls Federated K8s Auth
 **Success Criteria:**
 - Plugin extracts cluster_name from MariaDB username
-- Calls Token Validator API via HTTP
+- Calls Federated K8s Auth via HTTP
 - Returns authenticated username to MariaDB
 - All tests pass (user1, user2 authentication)
 
@@ -332,8 +332,8 @@ data:
  */
 
 /*
- * Call Token Validator API
- * POST http://token-validator-api:8080/api/v1/validate
+ * Call Federated K8s Auth
+ * POST http://federated-k8s-auth:8080/api/v1/validate
  * {
  *   "cluster_name": "production-us",
  *   "token": "eyJhbGc..."
@@ -356,17 +356,17 @@ data:
 
 **Configuration:**
 ```c
-// Token Validator API endpoint (configurable via environment variable)
+// Federated K8s Auth endpoint (configurable via environment variable)
 const char *api_url = getenv("TOKEN_VALIDATOR_API_URL") ?:
-                      "http://token-validator-api.default.svc.cluster.local:8080";
+                      "http://federated-k8s-auth.default.svc.cluster.local:8080";
 ```
 
 **CMakeLists.txt:**
 ```cmake
-OPTION(USE_TOKEN_VALIDATOR_API "Build with Token Validator API support" ON)
+OPTION(USE_TOKEN_VALIDATOR_API "Build with Federated K8s Auth support" ON)
 
 IF(USE_TOKEN_VALIDATOR_API)
-    MESSAGE(STATUS "Token Validator API enabled")
+    MESSAGE(STATUS "Federated K8s Auth enabled")
     ADD_LIBRARY(auth_k8s MODULE src/auth_k8s_api.c)
     TARGET_LINK_LIBRARIES(auth_k8s ${CURL_LIBRARIES} ${JSON_C_LIBRARIES})
     TARGET_INCLUDE_DIRECTORIES(auth_k8s PRIVATE ${CURL_INCLUDE_DIRS} ${JSON_C_INCLUDE_DIRS})
@@ -422,7 +422,7 @@ README.md
 │   ├── Components
 │   └── Token Flow
 ├── Quick Start
-│   ├── Deploy Token Validator API
+│   ├── Deploy Federated K8s Auth
 │   ├── Deploy MariaDB with API plugin
 │   └── Create test users
 ├── Configuration
@@ -472,7 +472,7 @@ mariadb-auth-k8s/
 │   ├── k8s_jwt_validator.h
 │   └── auth_k8s_api.c              # NEW: API client plugin
 │
-├── token-validator-api/             # NEW: Node.js API service
+├── federated-k8s-auth/             # NEW: Node.js API service
 │   ├── package.json
 │   ├── package-lock.json
 │   ├── Dockerfile
@@ -511,7 +511,7 @@ mariadb-auth-k8s/
 
 ### For Existing Users (JWT Plugin → API Plugin)
 
-**Step 1:** Deploy Token Validator API
+**Step 1:** Deploy Federated K8s Auth
 ```bash
 kubectl apply -f k8s/token-validator-serviceaccount.yaml
 kubectl apply -f k8s/token-validator-configmap.yaml
@@ -580,7 +580,7 @@ scripts/test-auth.sh
 
 ## Rollout Plan
 
-1. **Week 1:** Stage 1 - Token Validator API implementation
+1. **Week 1:** Stage 1 - Federated K8s Auth implementation
 2. **Week 2:** Stage 2 - Kubernetes deployment + Stage 3 - API plugin
 3. **Week 3:** Stage 4 - Integration testing + Documentation
 4. **Week 4:** Beta testing with real workloads, bug fixes

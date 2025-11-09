@@ -64,6 +64,3 @@ kind get clusters
 echo ""
 echo "✅ Kind clusters are ready for multi-cluster testing"
 echo ""
-echo "Next steps:"
-echo "  1. Run: make test-2clusters"
-echo "  2. Or manually: skaffold run -f skaffold-2clusters.yaml"

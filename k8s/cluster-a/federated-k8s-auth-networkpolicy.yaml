@@ -1,12 +1,12 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: token-validator-api
+  name: federated-k8s-auth
   namespace: mariadb-auth-test
 spec:
   podSelector:
     matchLabels:
-      app: token-validator-api
+      app: federated-k8s-auth
   policyTypes:
   - Ingress
   ingress:

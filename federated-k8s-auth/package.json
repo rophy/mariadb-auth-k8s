@@ -1,7 +1,7 @@
 {
-  "name": "token-validator-api",
+  "name": "federated-k8s-auth",
   "version": "1.0.0",
-  "description": "Token Validator API for MariaDB Kubernetes authentication",
+  "description": "Federated K8s Auth for MariaDB multi-cluster authentication",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

@@ -6,7 +6,7 @@ A MariaDB authentication plugin that validates Kubernetes ServiceAccount tokens,
 
 - **Kubernetes-native authentication**: Uses ServiceAccount tokens instead of passwords
 - **Three validation methods**:
-  - **Token Validator API** (recommended): Centralized multi-cluster validation service
+  - **Federated K8s Auth** (recommended): Centralized multi-cluster validation service
   - **JWT validation**: Local cryptographic verification with OIDC discovery
   - **TokenReview API**: Validates tokens against Kubernetes API server
 - **Multi-cluster support**: Authenticate users from multiple Kubernetes clusters
@@ -17,7 +17,7 @@ A MariaDB authentication plugin that validates Kubernetes ServiceAccount tokens,
 
 ## Architecture
 
-### Token Validator API (Production - Recommended)
+### Federated K8s Auth (Production - Recommended)
 
 ```mermaid
 graph TB
@@ -26,9 +26,9 @@ graph TB
         K8sAPIB["K8s API Server B"]
     end
 
-    subgraph ClusterA["Kubernetes Cluster A (MariaDB + Token Validator API)"]
+    subgraph ClusterA["Kubernetes Cluster A (MariaDB + Federated K8s Auth)"]
         MariaDB["MariaDB Pod<br/>Auth Plugin"]
-        API["Token Validator API<br/>• JWT validation<br/>• OIDC discovery<br/>• JWKS caching<br/>• Multi-cluster configs"]
+        API["Federated K8s Auth<br/>• JWT validation<br/>• OIDC discovery<br/>• JWKS caching<br/>• Multi-cluster configs"]
         K8sAPIA["K8s API Server A"]
 
         MariaDB -->|HTTP| API
@@ -86,7 +86,7 @@ sequenceDiagram
 
 ## Validation Methods
 
-### Token Validator API (Recommended - Production)
+### Federated K8s Auth (Recommended - Production)
 
 **How it works:**
 - Centralized Node.js service validates JWT tokens
@@ -106,7 +106,7 @@ sequenceDiagram
 **Cons:**
 - Additional service to deploy and maintain
 - Network hop adds ~5-10ms latency vs local validation
-- Requires Token Validator API deployment
+- Requires Federated K8s Auth deployment
 
 **When to use:** Production environments with multiple clusters or complex topology
 
@@ -170,7 +170,7 @@ The project is configured for multi-cluster testing by default, demonstrating cr
 # 1. Create two kind clusters (one-time setup)
 make kind
 
-# 2. Deploy everything (MariaDB + Token Validator API to cluster-a, test clients to both clusters)
+# 2. Deploy everything (MariaDB + Federated K8s Auth to cluster-a, test clients to both clusters)
 make deploy
 
 # 3. Run multi-cluster authentication tests
@@ -219,7 +219,7 @@ If you need to build the plugin separately:
 # Download MariaDB headers (one-time setup)
 make init
 
-# Build with Token Validator API (production, multi-cluster)
+# Build with Federated K8s Auth (production, multi-cluster)
 make build-api
 
 # Build with JWT validation (standalone, single-cluster)
@@ -243,7 +243,7 @@ mariadb-auth-k8s/
 ├── CMakeLists.txt                # Build configuration
 │
 ├── src/                          # MariaDB plugin source code (C)
-│   ├── auth_k8s_validator_api.c  # Token Validator API client plugin
+│   ├── auth_k8s_validator_api.c  # Federated K8s Auth client plugin
 │   ├── auth_k8s_jwt.c            # JWT validation plugin
 │   ├── auth_k8s_tokenreview.c    # TokenReview API plugin
 │   ├── jwt_crypto.c              # JWT cryptographic validation
@@ -251,7 +251,7 @@ mariadb-auth-k8s/
 │   ├── tokenreview_api.c         # TokenReview API client
 │   └── tokenreview_api.h         # TokenReview API interface
 │
-├── token-validator-api/          # Token Validator API service (Node.js)
+├── federated-k8s-auth/          # Federated K8s Auth service (Node.js)
 │   ├── Dockerfile                # API service container
 │   ├── package.json              # Node.js dependencies
 │   ├── src/
@@ -278,12 +278,12 @@ mariadb-auth-k8s/
 ├── init-auth-plugin.sh           # Plugin installation and user setup script
 │
 ├── k8s/                          # Kubernetes manifests (multi-cluster)
-│   ├── cluster-a/                # Cluster A: MariaDB + Token Validator API
+│   ├── cluster-a/                # Cluster A: MariaDB + Federated K8s Auth
 │   │   ├── namespace.yaml        # Namespace definition
 │   │   ├── rbac.yaml             # RBAC for TokenReview API
 │   │   ├── mariadb-nodeport.yaml # MariaDB with NodePort for cross-cluster access
 │   │   ├── test-clients.yaml     # Local test clients
-│   │   └── token-validator-*.yaml # Token Validator API manifests
+│   │   └── token-validator-*.yaml # Federated K8s Auth manifests
 │   │       ├── deployment.yaml   # API Deployment (3 replicas)
 │   │       ├── service.yaml      # API Service
 │   │       ├── serviceaccount.yaml # API ServiceAccount & RBAC
@@ -302,7 +302,7 @@ mariadb-auth-k8s/
 ### Build Targets
 ```bash
 make init              # Download and package MariaDB server headers
-make build             # Build plugin (Token Validator API, default)
+make build             # Build plugin (Federated K8s Auth, default)
 make build-api         # Alias for 'make build'
 make build-jwt         # Build plugin with JWT validation
 make build-tokenreview # Build plugin with TokenReview API
@@ -333,16 +333,16 @@ make deploy && make test
 ### Architecture
 
 The default setup creates a multi-cluster environment:
-- **cluster-a**: Hosts MariaDB + Token Validator API
+- **cluster-a**: Hosts MariaDB + Federated K8s Auth
 - **cluster-b**: Hosts remote test client
 
-This demonstrates cross-cluster authentication where a pod in cluster-b authenticates to MariaDB in cluster-a using its ServiceAccount token, validated by the Token Validator API.
+This demonstrates cross-cluster authentication where a pod in cluster-b authenticates to MariaDB in cluster-a using its ServiceAccount token, validated by the Federated K8s Auth.
 
 ## Configuration
 
 ### Creating Users
 
-**Token Validator API format:** `cluster_name/namespace/serviceaccount`
+**Federated K8s Auth format:** `cluster_name/namespace/serviceaccount`
 
 ```sql
 -- User1: Full admin access
@@ -374,7 +374,7 @@ GRANT ALL PRIVILEGES ON testdb.* TO 'mariadb-auth-test/user2'@'%';
 
 From a pod with ServiceAccount token:
 
-**Token Validator API:**
+**Federated K8s Auth:**
 ```bash
 # Read ServiceAccount token
 SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
@@ -527,7 +527,7 @@ K8s Auth: ✅ Authentication successful for mariadb-auth-test/user1
 - **JWKS caching**: Public keys cached for 1 hour, reduces API calls but keys must be rotated carefully
 - **Local validation**: No external API call during authentication (after initial JWKS fetch)
 - **Transport security**: OIDC/JWKS fetching uses HTTPS with cluster CA certificate
-- **Single cluster**: Only supports local cluster (multi-cluster requires Token Validator API)
+- **Single cluster**: Only supports local cluster (multi-cluster requires Federated K8s Auth)
 - **Namespace isolation**: Users must match their ServiceAccount's namespace
 - **Audit logging**: All authentication attempts are logged by MariaDB
 - **Built-in client plugin**: Uses `mysql_clear_password` - ensure TLS/SSL is enabled in production
@@ -623,7 +623,7 @@ The test suite validates:
 
 Each implementation has different dependency requirements:
 
-**Token Validator API (default, production):**
+**Federated K8s Auth (default, production):**
 - Build: gcc, cmake, pkg-config, libmariadb-dev, libcurl4-openssl-dev, libjson-c-dev
 - Runtime: libcurl4, libjson-c5
 
@@ -689,7 +689,7 @@ Set to `0` for testing without Kubernetes (accepts any non-empty token).
 - ServiceAccount tokens expire (default 1 hour, configurable via `expirationSeconds`)
 - Requires network access to Kubernetes API server for OIDC/JWKS (initial fetch only)
 - Username format restricted to `namespace/serviceaccount`
-- **Single cluster only**: Multi-cluster requires Token Validator API (see IMPLEMENTATION_PLAN.md)
+- **Single cluster only**: Multi-cluster requires Federated K8s Auth (see IMPLEMENTATION_PLAN.md)
 - JWKS key rotation: 1-hour cache delay for new keys
 - Token sent in cleartext during authentication (use TLS/SSL in production)
 - Requires Kubernetes 1.21+ for OIDC discovery (default enabled)
@@ -743,7 +743,7 @@ GRANT SELECT, LOCK TABLES ON *.* TO 'production/backup-service'@'%';
 ## Future Enhancements
 
 **JWT Validation:**
-- [ ] Multi-cluster support via Token Validator API (see IMPLEMENTATION_PLAN.md)
+- [ ] Multi-cluster support via Federated K8s Auth (see IMPLEMENTATION_PLAN.md)
 - [ ] Additional JWT algorithms (ES256, PS256)
 - [ ] Improved key rotation handling
 - [ ] Metrics and monitoring integration (Prometheus)

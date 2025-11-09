@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: token-validator-api
+  name: federated-k8s-auth
   namespace: mariadb-auth-test
   labels:
-    app: token-validator-api
+    app: federated-k8s-auth
 spec:
   type: ClusterIP
   ports:
@@ -13,4 +13,4 @@ spec:
     protocol: TCP
     name: http
   selector:
-    app: token-validator-api
+    app: federated-k8s-auth

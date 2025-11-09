@@ -1,4 +1,4 @@
-# Token Validator API
+# Federated K8s Auth
 
 Centralized JWT token validation service for MariaDB Kubernetes authentication.
 
@@ -15,7 +15,7 @@ Centralized JWT token validation service for MariaDB Kubernetes authentication.
 
 ```
 ┌──────────────┐         ┌─────────────────────────┐
-│ MariaDB Pod  │────────>│ Token Validator API     │
+│ MariaDB Pod  │────────>│ Federated K8s Auth     │
 │ Auth Plugin  │  HTTP   │ - JWT validation        │
 └──────────────┘         │ - OIDC discovery        │
                          │ - JWKS caching          │
@@ -51,7 +51,7 @@ npm start
 ### Build Docker image
 
 ```bash
-docker build -t token-validator-api:latest .
+docker build -t federated-k8s-auth:latest .
 ```
 
 ## API Endpoints
@@ -150,19 +150,19 @@ kubectl apply -f ../k8s/token-validator-service.yaml
 kubectl apply -f ../k8s/token-validator-networkpolicy.yaml
 
 # Verify deployment
-kubectl get pods -l app=token-validator-api
-kubectl logs -l app=token-validator-api
+kubectl get pods -l app=federated-k8s-auth
+kubectl logs -l app=federated-k8s-auth
 ```
 
 ### Build and push image
 
 ```bash
 # Build image
-docker build -t token-validator-api:latest .
+docker build -t federated-k8s-auth:latest .
 
 # Push to registry (example)
-docker tag token-validator-api:latest myregistry/token-validator-api:latest
-docker push myregistry/token-validator-api:latest
+docker tag federated-k8s-auth:latest myregistry/federated-k8s-auth:latest
+docker push myregistry/federated-k8s-auth:latest
 ```
 
 ## Development

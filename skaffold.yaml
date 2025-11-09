@@ -10,8 +10,8 @@ build:
     useBuildkit: true
     concurrency: 1
   artifacts:
-  - image: token-validator-api
-    context: token-validator-api
+  - image: federated-k8s-auth
+    context: federated-k8s-auth
     docker:
       dockerfile: Dockerfile
   - image: mariadb-server
@@ -33,16 +33,16 @@ deploy:
 
 manifests:
   rawYaml:
-  # Cluster-A: MariaDB + Token Validator API (multi-cluster mode)
+  # Cluster-A: MariaDB + Federated K8s Auth (multi-cluster mode)
   - k8s/cluster-a/namespace.yaml
   - k8s/cluster-a/rbac.yaml
   - k8s/cluster-a/mariadb-nodeport.yaml  # MariaDB deployment
   - k8s/cluster-a/test-clients.yaml      # Test clients for local testing
-  - k8s/cluster-a/token-validator-serviceaccount.yaml
-  - k8s/cluster-a/token-validator-configmap.yaml
-  - k8s/cluster-a/token-validator-deployment.yaml
-  - k8s/cluster-a/token-validator-service.yaml
-  - k8s/cluster-a/token-validator-networkpolicy.yaml
+  - k8s/cluster-a/federated-k8s-auth-serviceaccount.yaml
+  - k8s/cluster-a/federated-k8s-auth-configmap.yaml
+  - k8s/cluster-a/federated-k8s-auth-deployment.yaml
+  - k8s/cluster-a/federated-k8s-auth-service.yaml
+  - k8s/cluster-a/federated-k8s-auth-networkpolicy.yaml
 
 ---
 apiVersion: skaffold/v4beta7
