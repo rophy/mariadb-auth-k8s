@@ -1,6 +1,6 @@
 # Federated K8s Auth
 
-Centralized JWT token validation service for MariaDB Kubernetes authentication.
+Centralized JWT token validation service for Kubernetes ServiceAccount authentication across multiple clusters.
 
 ## Features
 
@@ -13,21 +13,10 @@ Centralized JWT token validation service for MariaDB Kubernetes authentication.
 
 ## Architecture
 
-```
-┌──────────────┐         ┌─────────────────────────┐
-│ MariaDB Pod  │────────>│ Federated K8s Auth     │
-│ Auth Plugin  │  HTTP   │ - JWT validation        │
-└──────────────┘         │ - OIDC discovery        │
-                         │ - JWKS caching          │
-                         │ - Multi-cluster configs │
-                         └─────────────────────────┘
-                                    │
-                                    │ Fetches JWKS
-                                    ▼
-                         ┌─────────────────┐
-                         │ K8s API Servers │
-                         │ (Local + Remote)│
-                         └─────────────────┘
+```mermaid
+graph LR
+    A[Client App] -->|HTTP| B[Federated K8s Auth]
+    B -->|Validates JWT| C[K8s API Servers<br/>Local + Remote]
 ```
 
 ## Quick Start
@@ -68,21 +57,31 @@ Validate a JWT token.
 }
 ```
 
-**Response (Success):**
+**Response (Success - HTTP 200):**
 ```json
 {
   "authenticated": true,
   "username": "production-us/app-ns/user1",
-  "expiration": 1735689600
+  "expiration": 1735689600,
+  "issued_at": 1735686000
 }
 ```
 
-**Response (Failure):**
+**Response (Auth Failure - HTTP 401):**
 ```json
 {
   "authenticated": false,
   "error": "invalid_signature",
   "message": "Token signature verification failed"
+}
+```
+
+**Response (Bad Request - HTTP 400):**
+```json
+{
+  "authenticated": false,
+  "error": "cluster_not_found",
+  "message": "No configuration found for cluster: unknown-cluster"
 }
 ```
 
@@ -143,26 +142,15 @@ Kubernetes manifests are located in the root `k8s/` directory:
 
 ```bash
 # Deploy all components
-kubectl apply -f ../k8s/token-validator-serviceaccount.yaml
-kubectl apply -f ../k8s/token-validator-configmap.yaml
-kubectl apply -f ../k8s/token-validator-deployment.yaml
-kubectl apply -f ../k8s/token-validator-service.yaml
-kubectl apply -f ../k8s/token-validator-networkpolicy.yaml
+kubectl apply -f ../k8s/cluster-a/federated-k8s-auth-serviceaccount.yaml
+kubectl apply -f ../k8s/cluster-a/federated-k8s-auth-configmap.yaml
+kubectl apply -f ../k8s/cluster-a/federated-k8s-auth-deployment.yaml
+kubectl apply -f ../k8s/cluster-a/federated-k8s-auth-service.yaml
+kubectl apply -f ../k8s/cluster-a/federated-k8s-auth-networkpolicy.yaml
 
 # Verify deployment
-kubectl get pods -l app=federated-k8s-auth
-kubectl logs -l app=federated-k8s-auth
-```
-
-### Build and push image
-
-```bash
-# Build image
-docker build -t federated-k8s-auth:latest .
-
-# Push to registry (example)
-docker tag federated-k8s-auth:latest myregistry/federated-k8s-auth:latest
-docker push myregistry/federated-k8s-auth:latest
+kubectl get pods -l app=federated-k8s-auth -n mariadb-auth-test
+kubectl logs -l app=federated-k8s-auth -n mariadb-auth-test
 ```
 
 ## Development
@@ -179,17 +167,21 @@ npm test
 npm run dev
 ```
 
+## HTTP Status Codes
+
+- **200 OK** - Successful authentication
+- **400 Bad Request** - Invalid request (missing params, cluster_not_found)
+- **401 Unauthorized** - Authentication failed (invalid token, expired, etc.)
+- **404 Not Found** - Unknown endpoint
+- **500 Internal Server Error** - Server error
+
 ## Error Codes
 
-- `invalid_request` - Missing or invalid request parameters
-- `invalid_token` - Malformed JWT
-- `invalid_signature` - Signature verification failed
-- `token_expired` - Token has expired
-- `cluster_not_found` - Unknown cluster name
-- `jwks_fetch_failed` - Failed to fetch JWKS
-- `oidc_discovery_failed` - Failed to fetch OIDC configuration
-- `internal_error` - Unexpected server error
-
-## License
-
-MIT
+- `invalid_request` - Missing or invalid request parameters (400)
+- `cluster_not_found` - Unknown cluster name (400)
+- `invalid_token` - Malformed JWT (401)
+- `invalid_signature` - Signature verification failed (401)
+- `token_expired` - Token has expired (401)
+- `jwks_fetch_failed` - Failed to fetch JWKS (500)
+- `oidc_discovery_failed` - Failed to fetch OIDC configuration (500)
+- `internal_error` - Unexpected server error (500)
