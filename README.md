@@ -5,10 +5,14 @@ A MariaDB authentication plugin that validates Kubernetes ServiceAccount tokens,
 ## Features
 
 - **Kubernetes-native authentication**: Uses ServiceAccount tokens instead of passwords
-- **Multi-cluster support**: Authenticate users from multiple Kubernetes clusters
+- **Multi-cluster support**: Authenticate users from multiple Kubernetes clusters via [kube-federated-auth](https://github.com/rophy/kube-federated-auth)
 - **Automatic fallback**: AUTH API (primary) → JWKS (local fallback)
 - **Zero password management**: Tokens are automatically mounted by Kubernetes
 - **No client plugin required**: Uses built-in `mysql_clear_password` plugin
+
+## Dependencies
+
+For multi-cluster support, this plugin requires [kube-federated-auth](https://github.com/rophy/kube-federated-auth) - a Kubernetes-native token validation service that federates authentication across multiple clusters.
 
 ## Architecture
 
