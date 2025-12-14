@@ -57,7 +57,7 @@ echo ""
 echo "Testing DIRECT connection from cluster-b to cluster-a MariaDB:"
 echo "  - Extract ServiceAccount token from cluster-b"
 echo "  - Connect directly to MariaDB via NodePort ($CLUSTER_A_IP:$MARIADB_NODEPORT)"
-echo "  - Federated K8s Auth validates against cluster-b's K8s API"
+echo "  - kube-federated-auth validates against cluster-b's K8s API"
 echo ""
 
 kubectl config use-context kind-${CLUSTER_B} > /dev/null

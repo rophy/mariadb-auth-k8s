@@ -38,12 +38,12 @@ timeout 60s bash -c "until kubectl get serviceaccount remote-user -n ${NAMESPACE
 # Create a long-lived token
 TOKEN_FILE="/tmp/cluster-b-token-multicluster.txt"
 kubectl create token remote-user -n ${NAMESPACE_B} --duration=24h > "$TOKEN_FILE"
-echo "✅ Token created"
+echo "Created token"
 
 # Extract CA certificate
 CA_FILE="/tmp/cluster-b-ca-multicluster.crt"
 kubectl get configmap kube-root-ca.crt -n kube-system -o jsonpath='{.data.ca\.crt}' > "$CA_FILE"
-echo "✅ CA certificate extracted"
+echo "CA certificate extracted"
 
 # Get issuer from token
 ISSUER=$(cat "$TOKEN_FILE" | cut -d'.' -f2 | base64 -d 2>/dev/null | jq -r '.iss')
@@ -61,56 +61,63 @@ timeout 60s bash -c "until kubectl get namespace ${NAMESPACE_A} > /dev/null 2>&1
 }
 
 # Create or update secret with cluster-b credentials
-kubectl delete secret federated-k8s-auth-remote-clusters -n ${NAMESPACE_A} 2>/dev/null || true
-kubectl create secret generic federated-k8s-auth-remote-clusters \
+kubectl delete secret kube-federated-auth-remote-clusters -n ${NAMESPACE_A} 2>/dev/null || true
+kubectl create secret generic kube-federated-auth-remote-clusters \
   --from-file=cluster-b-ca.crt="$CA_FILE" \
   --from-file=cluster-b-token="$TOKEN_FILE" \
   -n ${NAMESPACE_A}
-echo "✅ Secret created in cluster-a"
+echo "Secret created in cluster-a"
 
-# Update ConfigMap with cluster-b configuration
+# Update ConfigMap with cluster-b configuration (new format: map instead of list)
 kubectl apply -f - <<EOF
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: federated-k8s-auth-config
+  name: kube-federated-auth-config
   namespace: ${NAMESPACE_A}
 data:
   clusters.yaml: |
+    renewal:
+      interval: "1h"
+      token_duration: "168h"
+      renew_before: "48h"
+
     clusters:
-      # Local cluster - auto-detected
-      - name: local
-        auto: true
+      # Local cluster - use in-cluster credentials for OIDC discovery
+      local:
+        issuer: "https://kubernetes.default.svc.cluster.local"
+        ca_cert: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+        token_path: "/var/run/secrets/kubernetes.io/serviceaccount/token"
 
       # External cluster-b
-      - name: cluster-b
-        issuer: ${ISSUER}
-        api_server: https://${CLUSTER_B_IP}:6443
-        ca_cert_path: /etc/secrets/cluster-b-ca.crt
-        token_path: /etc/secrets/cluster-b-token
+      cluster-b:
+        issuer: "${ISSUER}"
+        api_server: "https://${CLUSTER_B_IP}:6443"
+        ca_cert: "/etc/secrets/cluster-b-ca.crt"
+        token_path: "/etc/secrets/cluster-b-token"
 EOF
-echo "✅ ConfigMap updated"
+echo "ConfigMap updated"
 
-# Patch Federated K8s Auth deployment to use the secret
+# Patch kube-federated-auth deployment to use the secret
 echo ""
-echo "Updating Federated K8s Auth deployment..."
-kubectl patch deployment federated-k8s-auth -n ${NAMESPACE_A} --type=json -p='[
-  {"op": "replace", "path": "/spec/template/spec/volumes/1/secret/secretName", "value":"federated-k8s-auth-remote-clusters"},
+echo "Updating kube-federated-auth deployment..."
+kubectl patch deployment kube-federated-auth -n ${NAMESPACE_A} --type=json -p='[
+  {"op": "replace", "path": "/spec/template/spec/volumes/1/secret/secretName", "value":"kube-federated-auth-remote-clusters"},
   {"op": "replace", "path": "/spec/template/spec/volumes/1/secret/optional", "value":false}
 ]' 2>/dev/null || {
-    echo "⚠️  Note: Secret volume may already be configured"
+    echo "Note: Secret volume may already be configured"
 }
 
-# Wait for Federated K8s Auth to be ready
-echo "Waiting for Federated K8s Auth to restart..."
-kubectl rollout status deployment/federated-k8s-auth -n ${NAMESPACE_A} --timeout=120s
+# Wait for kube-federated-auth to be ready
+echo "Waiting for kube-federated-auth to restart..."
+kubectl rollout status deployment/kube-federated-auth -n ${NAMESPACE_A} --timeout=120s
 
-# Verify Federated K8s Auth sees both clusters
+# Verify kube-federated-auth sees both clusters
 echo ""
-echo "Verifying Federated K8s Auth configuration..."
+echo "Verifying kube-federated-auth configuration..."
 sleep 5
-kubectl logs -n ${NAMESPACE_A} -l app=federated-k8s-auth --tail=10 | grep -E "Loaded.*cluster" || {
-    echo "⚠️  Could not verify cluster configuration in logs"
+kubectl logs -n ${NAMESPACE_A} -l app=kube-federated-auth --tail=10 | grep -E "cluster|Loaded" || {
+    echo "Note: Could not verify cluster configuration in logs"
 }
 
 # Create MariaDB user for cluster-b remote-user
@@ -125,16 +132,16 @@ CREATE USER IF NOT EXISTS 'cluster-b/remote-test/remote-user'@'%' IDENTIFIED VIA
 GRANT ALL PRIVILEGES ON *.* TO 'cluster-b/remote-test/remote-user'@'%';
 FLUSH PRIVILEGES;
 " || {
-    echo "⚠️  MariaDB user may already exist"
+    echo "Note: MariaDB user may already exist"
 }
 
-echo "✅ MariaDB user created"
+echo "MariaDB user created"
 
 # Get MariaDB service IP for reference
 MARIADB_IP=$(kubectl get svc mariadb -n ${NAMESPACE_A} -o jsonpath='{.spec.clusterIP}')
 echo ""
 echo "=========================================="
-echo "✅ Multi-Cluster Setup Complete"
+echo "Multi-Cluster Setup Complete"
 echo "=========================================="
 echo ""
 echo "Configuration Summary:"

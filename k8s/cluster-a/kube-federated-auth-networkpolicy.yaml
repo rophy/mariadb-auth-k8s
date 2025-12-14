@@ -1,12 +1,12 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: federated-k8s-auth
+  name: kube-federated-auth
   namespace: mariadb-auth-test
 spec:
   podSelector:
     matchLabels:
-      app: federated-k8s-auth
+      app: kube-federated-auth
   policyTypes:
   - Ingress
   ingress:

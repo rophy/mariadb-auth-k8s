@@ -1,7 +1,7 @@
 /*
  * MariaDB Kubernetes ServiceAccount Authentication Plugin - API Client
  *
- * Validates ServiceAccount tokens by calling Federated K8s Auth service.
+ * Validates ServiceAccount tokens by calling kube-federated-auth service.
  * This plugin delegates JWT validation to a separate service that federates
  * authentication across multiple Kubernetes clusters.
  */
@@ -14,9 +14,9 @@
 #include <mysql/plugin_auth.h>
 #include "version.h"
 
-/* Default Federated K8s Auth API endpoint */
-#ifndef FEDERATED_K8S_AUTH_URL
-#define FEDERATED_K8S_AUTH_URL "http://federated-k8s-auth.default.svc.cluster.local:8080/api/v1/validate"
+/* Default kube-federated-auth API endpoint */
+#ifndef KUBE_FEDERATED_AUTH_URL
+#define KUBE_FEDERATED_AUTH_URL "http://kube-federated-auth.default.svc.cluster.local:8080/validate"
 #endif
 
 /* Default maximum token TTL (1 hour) */
@@ -103,9 +103,9 @@ static int validate_token_via_api(const char *cluster_name, const char *token, c
     int result = 0;
 
     /* Get API URL from environment or use default */
-    const char *api_url = getenv("FEDERATED_K8S_AUTH_URL");
+    const char *api_url = getenv("KUBE_FEDERATED_AUTH_URL");
     if (!api_url) {
-        api_url = FEDERATED_K8S_AUTH_URL;
+        api_url = KUBE_FEDERATED_AUTH_URL;
     }
 
     fprintf(stderr, "K8s Auth API: Validating token via %s\n", api_url);
@@ -119,7 +119,7 @@ static int validate_token_via_api(const char *cluster_name, const char *token, c
 
     /* Prepare request body */
     struct json_object *request_json = json_object_new_object();
-    json_object_object_add(request_json, "cluster_name", json_object_new_string(cluster_name));
+    json_object_object_add(request_json, "cluster", json_object_new_string(cluster_name));
     json_object_object_add(request_json, "token", json_object_new_string(token));
     const char *request_body = json_object_to_json_string(request_json);
 
@@ -159,62 +159,84 @@ static int validate_token_via_api(const char *cluster_name, const char *token, c
             goto cleanup;
         }
 
-        /* Check authenticated field */
-        struct json_object *authenticated_obj;
-        if (json_object_object_get_ex(response_json, "authenticated", &authenticated_obj)) {
-            int authenticated = json_object_get_boolean(authenticated_obj);
+        /* HTTP 200 means authentication succeeded - parse claims */
+        if (http_code == 200) {
+            /* Extract cluster, namespace, and serviceaccount from claims */
+            struct json_object *cluster_obj, *k8s_obj;
+            const char *resp_cluster = NULL;
+            const char *namespace = NULL;
+            const char *sa_name = NULL;
 
-            if (authenticated && http_code == 200) {
-                /* Get username from response */
-                struct json_object *username_obj;
-                if (json_object_object_get_ex(response_json, "username", &username_obj)) {
-                    const char *username = json_object_get_string(username_obj);
-
-                    /* Check token TTL if expiration and issued_at are provided */
-                    struct json_object *exp_obj, *iat_obj;
-                    if (json_object_object_get_ex(response_json, "expiration", &exp_obj) &&
-                        json_object_object_get_ex(response_json, "issued_at", &iat_obj)) {
-                        long exp = json_object_get_int64(exp_obj);
-                        long iat = json_object_get_int64(iat_obj);
-
-                        if (exp > 0 && iat > 0) {
-                            long token_lifetime = exp - iat;
-                            long max_ttl = get_max_token_ttl();
-
-                            if (token_lifetime > max_ttl) {
-                                fprintf(stderr, "K8s Auth API: ❌ Token TTL (%lds) exceeds maximum allowed (%lds)\n",
-                                        token_lifetime, max_ttl);
-                                json_object_put(response_json);
-                                goto cleanup;
-                            }
-
-                            fprintf(stderr, "K8s Auth API: Token TTL: %lds (max: %lds)\n", token_lifetime, max_ttl);
-                        }
-                    }
-
-                    if (authenticated_username) {
-                        *authenticated_username = strdup(username);
-                    }
-                    fprintf(stderr, "K8s Auth API: ✅ Authentication successful: %s\n", username);
-                    result = 1;
-                } else {
-                    fprintf(stderr, "K8s Auth API: Response missing username field\n");
-                }
-            } else {
-                /* Log error details */
-                struct json_object *error_obj, *message_obj;
-                const char *error = "unknown";
-                const char *message = "no details";
-
-                if (json_object_object_get_ex(response_json, "error", &error_obj)) {
-                    error = json_object_get_string(error_obj);
-                }
-                if (json_object_object_get_ex(response_json, "message", &message_obj)) {
-                    message = json_object_get_string(message_obj);
-                }
-
-                fprintf(stderr, "K8s Auth API: ❌ Authentication failed: %s - %s\n", error, message);
+            if (json_object_object_get_ex(response_json, "cluster", &cluster_obj)) {
+                resp_cluster = json_object_get_string(cluster_obj);
             }
+
+            /* Parse kubernetes.io claims */
+            if (json_object_object_get_ex(response_json, "kubernetes.io", &k8s_obj)) {
+                struct json_object *ns_obj, *sa_obj, *sa_name_obj;
+                if (json_object_object_get_ex(k8s_obj, "namespace", &ns_obj)) {
+                    namespace = json_object_get_string(ns_obj);
+                }
+                if (json_object_object_get_ex(k8s_obj, "serviceaccount", &sa_obj)) {
+                    if (json_object_object_get_ex(sa_obj, "name", &sa_name_obj)) {
+                        sa_name = json_object_get_string(sa_name_obj);
+                    }
+                }
+            }
+
+            if (resp_cluster && namespace && sa_name) {
+                /* Check token TTL if exp and iat are provided */
+                struct json_object *exp_obj, *iat_obj;
+                if (json_object_object_get_ex(response_json, "exp", &exp_obj) &&
+                    json_object_object_get_ex(response_json, "iat", &iat_obj)) {
+                    long exp = json_object_get_int64(exp_obj);
+                    long iat = json_object_get_int64(iat_obj);
+
+                    if (exp > 0 && iat > 0) {
+                        long token_lifetime = exp - iat;
+                        long max_ttl = get_max_token_ttl();
+
+                        if (token_lifetime > max_ttl) {
+                            fprintf(stderr, "K8s Auth API: ❌ Token TTL (%lds) exceeds maximum allowed (%lds)\n",
+                                    token_lifetime, max_ttl);
+                            json_object_put(response_json);
+                            goto cleanup;
+                        }
+
+                        fprintf(stderr, "K8s Auth API: Token TTL: %lds (max: %lds)\n", token_lifetime, max_ttl);
+                    }
+                }
+
+                /* Construct username: cluster/namespace/serviceaccount */
+                if (authenticated_username) {
+                    size_t username_len = strlen(resp_cluster) + strlen(namespace) + strlen(sa_name) + 3;
+                    *authenticated_username = malloc(username_len);
+                    if (*authenticated_username) {
+                        snprintf(*authenticated_username, username_len, "%s/%s/%s", resp_cluster, namespace, sa_name);
+                    }
+                }
+                fprintf(stderr, "K8s Auth API: ✅ Authentication successful: %s/%s/%s\n", resp_cluster, namespace, sa_name);
+                result = 1;
+            } else {
+                fprintf(stderr, "K8s Auth API: Response missing required claims (cluster=%s, namespace=%s, sa=%s)\n",
+                        resp_cluster ? resp_cluster : "null",
+                        namespace ? namespace : "null",
+                        sa_name ? sa_name : "null");
+            }
+        } else {
+            /* Error response - log details */
+            struct json_object *error_obj, *message_obj;
+            const char *error = "unknown";
+            const char *message = "no details";
+
+            if (json_object_object_get_ex(response_json, "error", &error_obj)) {
+                error = json_object_get_string(error_obj);
+            }
+            if (json_object_object_get_ex(response_json, "message", &message_obj)) {
+                message = json_object_get_string(message_obj);
+            }
+
+            fprintf(stderr, "K8s Auth API: ❌ Authentication failed: %s - %s\n", error, message);
         }
 
         json_object_put(response_json);
@@ -330,7 +352,7 @@ mysql_declare_plugin(auth_k8s)
     &auth_k8s_handler,
     "auth_k8s",
     "MariaDB K8s Auth Plugin Contributors",
-    "Kubernetes ServiceAccount Authentication via Federated K8s Auth",
+    "Kubernetes ServiceAccount Authentication via kube-federated-auth",
     PLUGIN_LICENSE_GPL,
     NULL,                 /* Plugin init */
     NULL,                 /* Plugin deinit */

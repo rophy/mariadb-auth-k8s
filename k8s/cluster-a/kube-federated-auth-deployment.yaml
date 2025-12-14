@@ -1,24 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: federated-k8s-auth
+  name: kube-federated-auth
   namespace: mariadb-auth-test
   labels:
-    app: federated-k8s-auth
+    app: kube-federated-auth
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: federated-k8s-auth
+      app: kube-federated-auth
   template:
     metadata:
       labels:
-        app: federated-k8s-auth
+        app: kube-federated-auth
     spec:
-      serviceAccountName: federated-k8s-auth
+      serviceAccountName: kube-federated-auth
       containers:
       - name: api
-        image: federated-k8s-auth:latest
+        image: rophy/kube-federated-auth:0.0.1
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
@@ -26,11 +26,11 @@ spec:
         env:
         - name: PORT
           value: "8080"
-        - name: CLUSTER_CONFIG_PATH
-          value: "/etc/federated-k8s-auth/clusters.yaml"
+        - name: CONFIG_PATH
+          value: "/etc/kube-federated-auth/clusters.yaml"
         volumeMounts:
         - name: config
-          mountPath: /etc/federated-k8s-auth
+          mountPath: /etc/kube-federated-auth
           readOnly: true
         - name: secrets
           mountPath: /etc/secrets
@@ -57,8 +57,8 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: federated-k8s-auth-config
+          name: kube-federated-auth-config
       - name: secrets
         secret:
-          secretName: federated-k8s-auth-secrets
+          secretName: kube-federated-auth-secrets
           optional: true

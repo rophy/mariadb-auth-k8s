@@ -28,7 +28,7 @@ make destroy
 ## Local Development Setup
 
 The project uses two Kind clusters for multi-cluster testing:
-- **cluster-a**: Runs MariaDB + Federated K8s Auth service
+- **cluster-a**: Runs MariaDB + kube-federated-auth service
 - **cluster-b**: Remote cluster with test client
 
 ```bash
@@ -52,21 +52,10 @@ src/                              # MariaDB authentication plugin (C)
   jwt_crypto.c/h                  # JWT cryptographic operations
   tokenreview_api.c/h             # TokenReview API client
 
-federated-k8s-auth/               # Token validation service (Node.js)
-  src/
-    index.js                      # Entry point
-    server.js                     # Express HTTP server
-    validator.js                  # Token validation logic
-    cluster-config.js             # Multi-cluster configuration
-    jwks-cache.js                 # JWKS key caching
-    oidc-discovery.js             # OIDC discovery client
-  test/
-    validator.test.js             # Unit tests
-
 k8s/
   cluster-a/                      # MariaDB cluster manifests
     mariadb-nodeport.yaml         # MariaDB deployment + NodePort
-    federated-k8s-auth-*.yaml     # Token validator service
+    kube-federated-auth-*.yaml    # Token validator service
     test-clients.yaml             # Local test clients
   cluster-b/                      # Remote cluster manifests
     test-client-remote.yaml       # Remote test client
@@ -88,26 +77,26 @@ scripts/
 
 The built plugin is extracted to `./build/auth_k8s.so`.
 
-## Testing the Federated K8s Auth Service
+## Testing the kube-federated-auth Service
 
 ```bash
 # Check logs
-kubectl logs -n mariadb-auth-test -l app=federated-k8s-auth --tail=20 --context kind-cluster-a
+kubectl logs -n mariadb-auth-test -l app=kube-federated-auth --tail=20 --context kind-cluster-a
 
 # Health check
 kubectl exec -n mariadb-auth-test deploy/client-user1 --context kind-cluster-a -- \
-  curl -s http://federated-k8s-auth:8080/health
+  curl -s http://kube-federated-auth:8080/health
 
 # List configured clusters
 kubectl exec -n mariadb-auth-test deploy/client-user1 --context kind-cluster-a -- \
-  curl -s http://federated-k8s-auth:8080/clusters
+  curl -s http://kube-federated-auth:8080/clusters
 
 # Validate a token
 TOKEN=$(kubectl create token user1 --context kind-cluster-a -n mariadb-auth-test --duration=1h)
 kubectl exec -n mariadb-auth-test deploy/client-user1 --context kind-cluster-a -- \
-  curl -s -X POST http://federated-k8s-auth:8080/validate \
+  curl -s -X POST http://kube-federated-auth:8080/validate \
   -H "Content-Type: application/json" \
-  -d "{\"token\": \"$TOKEN\"}"
+  -d "{\"token\": \"$TOKEN\", \"cluster\": \"local\"}"
 ```
 
 ## Testing MariaDB Authentication
@@ -125,14 +114,6 @@ kubectl exec -n remote-test deploy/remote-client --context kind-cluster-b -- \
   -e "SHOW DATABASES"
 ```
 
-## Running Unit Tests (Federated K8s Auth)
-
-```bash
-cd federated-k8s-auth
-npm install
-npm test
-```
-
 ## Git Commit Convention
 
 ```
@@ -144,4 +125,3 @@ npm test
 Types: feat, fix, refactor, chore, docs, build, test
 
 No "Generated with Claude" footer or Co-Authored-By lines.
->>>>>>> f2ed779 (doc: CLAUDE.md)
