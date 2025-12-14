@@ -176,4 +176,4 @@ kubectl exec -n mariadb-auth-test deploy/client-user1 -- \
 
 ## License
 
-GPL (matching MariaDB plugin license requirements)
+MIT
