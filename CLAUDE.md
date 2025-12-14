@@ -6,14 +6,8 @@
 # Clean build artifacts
 make clean
 
-# Build plugin (Token Validator API - default, production)
+# Build unified plugin (AUTH API + JWKS fallback)
 make build
-
-# Build with JWT validation
-make build-jwt
-
-# Build with TokenReview API
-make build-tokenreview
 
 # Deploy to local Kind clusters
 make deploy
@@ -46,11 +40,10 @@ make test
 
 ```
 src/                              # MariaDB authentication plugin (C)
-  auth_k8s_validator_api.c        # Token Validator API client (production)
-  auth_k8s_jwt.c                  # JWT validation with OIDC
-  auth_k8s_tokenreview.c          # TokenReview API validation
+  auth_k8s.c                      # Unified plugin (AUTH API + JWKS fallback)
   jwt_crypto.c/h                  # JWT cryptographic operations
-  tokenreview_api.c/h             # TokenReview API client
+  tokenreview_api.c/h             # TokenReview API client (kept for future use)
+  auth_k8s_tokenreview.c          # TokenReview-only plugin (kept for future use)
 
 k8s/
   cluster-a/                      # MariaDB cluster manifests
@@ -67,15 +60,22 @@ scripts/
   download-headers.sh             # Download MariaDB headers
 ```
 
-## Build Targets
+## Unified Plugin Validation Flow
 
-| Target | Description |
-|--------|-------------|
-| `make build` | Token Validator API (default, production, multi-cluster) |
-| `make build-jwt` | JWT validation with OIDC discovery |
-| `make build-tokenreview` | TokenReview API validation |
+The unified plugin validates tokens with automatic fallback:
 
-The built plugin is extracted to `./build/auth_k8s.so`.
+1. **AUTH API** (if `KUBE_FEDERATED_AUTH_URL` is set)
+   - Supports multi-cluster validation via kube-federated-auth
+   - Full revocation support (uses TokenReview internally)
+
+2. **JWKS fallback** (for local cluster only)
+   - Falls back when AUTH API is unavailable
+   - Cross-cluster requests fail without AUTH API
+
+Username format: `cluster/namespace/serviceaccount`
+- 3-part: `cluster-b/default/myapp` (cross-cluster)
+- 3-part with "local": `local/default/myapp` (local cluster)
+- 2-part: `default/myapp` (local cluster, implicit)
 
 ## Testing the kube-federated-auth Service
 

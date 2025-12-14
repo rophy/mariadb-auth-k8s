@@ -1,4 +1,4 @@
-.PHONY: init build build-api build-jwt build-tokenreview clean kind deploy test destroy help
+.PHONY: init build clean kind deploy test destroy help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -14,44 +14,16 @@ init:
 	@echo "Downloading MariaDB server headers..."
 	@./scripts/download-headers.sh $(MARIADB_VERSION)
 
-# Build the plugin (compiles all variants inside Docker image and extracts validator_api)
-# Default: kube-federated-auth API (production, multi-cluster)
+# Build the unified plugin (AUTH API + JWKS fallback)
 build:
-	@echo "Building MariaDB K8s Auth Plugin Docker image v$(VERSION) (all variants)..."
+	@echo "Building MariaDB K8s Auth Plugin v$(VERSION)..."
 	docker build --build-arg VERSION=$(VERSION) -t mariadb-auth-k8s:$(VERSION) -t mariadb-auth-k8s:latest .
-	@echo "Extracting Validator API plugin to ./build/..."
+	@echo "Extracting plugin to ./build/..."
 	@mkdir -p build
 	@CONTAINER_ID=$$(docker create mariadb-auth-k8s:latest) && \
-		docker cp $$CONTAINER_ID:/mariadb/auth_k8s_federated_api.so ./build/auth_k8s.so && \
+		docker cp $$CONTAINER_ID:/mariadb/auth_k8s.so ./build/auth_k8s.so && \
 		docker rm $$CONTAINER_ID > /dev/null
-	@echo "Plugin v$(VERSION) extracted to ./build/auth_k8s.so (Validator API variant)"
-
-# Extract Validator API variant
-build-api: build
-
-# Extract JWT validation variant
-build-jwt:
-	@echo "Building MariaDB K8s Auth Plugin Docker image v$(VERSION) (all variants)..."
-	docker build --build-arg VERSION=$(VERSION) -t mariadb-auth-k8s:$(VERSION) -t mariadb-auth-k8s:latest .
-	@echo "✓ All plugin variants compiled inside Docker image"
-	@echo "Extracting JWT plugin to ./build/..."
-	@mkdir -p build
-	@CONTAINER_ID=$$(docker create mariadb-auth-k8s:latest) && \
-		docker cp $$CONTAINER_ID:/mariadb/auth_k8s_jwt.so ./build/auth_k8s.so && \
-		docker rm $$CONTAINER_ID > /dev/null
-	@echo "✓ Plugin v$(VERSION) extracted to ./build/auth_k8s.so (JWT variant)"
-
-# Extract TokenReview API variant
-build-tokenreview:
-	@echo "Building MariaDB K8s Auth Plugin Docker image v$(VERSION) (all variants)..."
-	docker build --build-arg VERSION=$(VERSION) -t mariadb-auth-k8s:$(VERSION) -t mariadb-auth-k8s:latest .
-	@echo "✓ All plugin variants compiled inside Docker image"
-	@echo "Extracting TokenReview plugin to ./build/..."
-	@mkdir -p build
-	@CONTAINER_ID=$$(docker create mariadb-auth-k8s:latest) && \
-		docker cp $$CONTAINER_ID:/mariadb/auth_k8s_tokenreview.so ./build/auth_k8s.so && \
-		docker rm $$CONTAINER_ID > /dev/null
-	@echo "✓ Plugin v$(VERSION) extracted to ./build/auth_k8s.so (TokenReview variant)"
+	@echo "Plugin v$(VERSION) extracted to ./build/auth_k8s.so"
 
 # Clean build artifacts
 clean:
@@ -67,7 +39,7 @@ kind:
 	@./scripts/setup-kind-clusters.sh
 
 # Deploy to multi-cluster environment
-deploy:
+deploy: build
 	@echo "=========================================="
 	@echo "Deploying to Multi-Cluster Environment"
 	@echo "=========================================="
@@ -75,13 +47,13 @@ deploy:
 	@echo "Step 1: Ensuring kind clusters exist..."
 	@./scripts/setup-kind-clusters.sh
 	@echo ""
-	@echo "Step 2: Building and deploying with skaffold..."
+	@echo "Step 2: Deploying with skaffold..."
 	@skaffold run
 	@echo ""
 	@echo "Step 3: Configuring multi-cluster authentication..."
 	@./scripts/setup-multicluster.sh
 	@echo ""
-	@echo "✅ Deployment complete!"
+	@echo "Deployment complete!"
 	@echo ""
 	@echo "Next: Run 'make test' to verify authentication"
 
@@ -102,35 +74,32 @@ destroy:
 	@kind delete cluster --name cluster-a 2>/dev/null || echo "Cluster-a already deleted"
 	@kind delete cluster --name cluster-b 2>/dev/null || echo "Cluster-b already deleted"
 	@echo ""
-	@echo "✅ Destroy complete!"
+	@echo "Destroy complete!"
 
 # Show help
 help:
 	@echo "MariaDB K8s Auth Plugin - Multi-Cluster Testing"
 	@echo ""
 	@echo "Build targets:"
-	@echo "  make init              - Download and package MariaDB server headers"
-	@echo "  make build             - Build plugin (Feoderated Auth API, default)"
-	@echo "  make build-api         - Alias for 'make build'"
-	@echo "  make build-jwt         - Build plugin with JWT validation"
-	@echo "  make build-tokenreview - Build plugin with TokenReview API"
-	@echo "  make clean             - Clean build artifacts"
+	@echo "  make init    - Download and package MariaDB server headers"
+	@echo "  make build   - Build unified plugin (AUTH API + JWKS fallback)"
+	@echo "  make clean   - Clean build artifacts"
 	@echo ""
 	@echo "Multi-cluster environment:"
-	@echo "  make kind              - Create two kind clusters (cluster-a, cluster-b)"
-	@echo "  make deploy            - Setup clusters and deploy everything"
-	@echo "  make test              - Run multi-cluster authentication tests"
-	@echo "  make destroy           - Destroy everything (deployments + clusters)"
+	@echo "  make kind    - Create two kind clusters (cluster-a, cluster-b)"
+	@echo "  make deploy  - Build plugin, setup clusters, deploy everything"
+	@echo "  make test    - Run multi-cluster authentication tests"
+	@echo "  make destroy - Destroy everything (deployments + clusters)"
 	@echo ""
 	@echo "Workflow:"
-	@echo "  1. make kind           - Create clusters (one-time setup)"
-	@echo "  2. make deploy         - Deploy MariaDB, Token Validator, test clients"
-	@echo "  3. make test           - Run authentication tests"
-	@echo "  4. make destroy        - Destroy clusters when done"
+	@echo "  1. make kind    - Create clusters (one-time setup)"
+	@echo "  2. make deploy  - Deploy MariaDB, kube-federated-auth, test clients"
+	@echo "  3. make test    - Run authentication tests"
+	@echo "  4. make destroy - Destroy clusters when done"
 	@echo ""
 	@echo "Quick start:"
 	@echo "  make deploy && make test"
 	@echo ""
-	@echo "Note: The default setup uses multi-cluster architecture with:"
-	@echo "  - cluster-a: MariaDB + kube-federated-auth"
-	@echo "  - cluster-b: Remote test client"
+	@echo "Note: The unified plugin uses:"
+	@echo "  - AUTH API (kube-federated-auth) for multi-cluster validation"
+	@echo "  - JWKS fallback for local cluster when AUTH API unavailable"

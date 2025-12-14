@@ -28,20 +28,23 @@ WORKDIR /workspace
 # Copy source files
 COPY src/ /workspace/src/
 COPY CMakeLists.txt /workspace/
-COPY include/build-all-plugins.sh /workspace/
 COPY include/generate-version.sh /workspace/
 
 # Generate version.h
 RUN chmod +x generate-version.sh && \
     ./generate-version.sh "${VERSION}" src/version.h
 
-# Build all three plugin variants
-RUN chmod +x build-all-plugins.sh && ./build-all-plugins.sh
+# Build unified plugin
+RUN mkdir -p build && cd build && \
+    cmake .. && \
+    make && \
+    mkdir -p /output && \
+    cp auth_k8s.so /output/
 
 # Distribute the plugin with a minimal image.
 FROM busybox
 
-COPY --from=builder /output/*.so /mariadb/
+COPY --from=builder /output/auth_k8s.so /mariadb/
 COPY include/entrypoint.sh /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh
