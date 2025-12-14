@@ -3,27 +3,16 @@
 # Default target
 .DEFAULT_GOAL := help
 
-# Plugin version from git tags (e.g., 1.0, 2.0)
-VERSION := $(shell git describe --tags --always 2>/dev/null || echo "0.0")
-
 # MariaDB version for headers
 MARIADB_VERSION := 10.6.22
 
 # Download and package MariaDB server headers
 init:
-	@echo "Downloading MariaDB server headers..."
 	@./scripts/download-headers.sh $(MARIADB_VERSION)
 
 # Build the unified plugin (AUTH API + JWKS fallback)
 build:
-	@echo "Building MariaDB K8s Auth Plugin v$(VERSION)..."
-	docker build --build-arg VERSION=$(VERSION) -t mariadb-auth-k8s:$(VERSION) -t mariadb-auth-k8s:latest .
-	@echo "Extracting plugin to ./build/..."
-	@mkdir -p build
-	@CONTAINER_ID=$$(docker create mariadb-auth-k8s:latest) && \
-		docker cp $$CONTAINER_ID:/mariadb/auth_k8s.so ./build/auth_k8s.so && \
-		docker rm $$CONTAINER_ID > /dev/null
-	@echo "Plugin v$(VERSION) extracted to ./build/auth_k8s.so"
+	@./scripts/build.sh
 
 # Clean build artifacts
 clean:
