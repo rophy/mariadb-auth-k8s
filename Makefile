@@ -3,8 +3,8 @@
 # Default target
 .DEFAULT_GOAL := help
 
-# Plugin version (M.N format)
-VERSION := 1.0
+# Plugin version from git tags (e.g., 1.0, 2.0)
+VERSION := $(shell git describe --tags --always 2>/dev/null || echo "0.0")
 
 # MariaDB version for headers
 MARIADB_VERSION := 10.6.22
