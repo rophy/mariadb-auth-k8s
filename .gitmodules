@@ -1,0 +1,4 @@
+[submodule "proxysql"]
+	path = proxysql
+	url = https://github.com/rophy/proxysql.git
+	branch = v3.0
