@@ -1,9 +1,9 @@
 apiVersion: skaffold/v4beta7
 kind: Config
 metadata:
-  name: mariadb-2clusters
+  name: mariadb-auth-k8s
 
-# Build configuration - builds images once for both clusters
+# Build configuration
 build:
   local:
     push: false
@@ -15,48 +15,20 @@ build:
       dockerfile: Dockerfile.mariadb
       buildArgs:
         BUILDKIT_INLINE_CACHE: "1"
-        CMAKE_OPTS: "-DUSE_TOKEN_VALIDATOR_API=ON"
   - image: test-client
     docker:
       dockerfile: Dockerfile.client
       buildArgs:
         BUILDKIT_INLINE_CACHE: "1"
 
-# Deploy configuration - deploys to cluster-a only
+# Deploy configuration
 deploy:
   kubeContext: kind-cluster-a
   kubectl: {}
 
 manifests:
   rawYaml:
-  # Cluster-A: MariaDB + kube-federated-auth (multi-cluster mode)
   - k8s/cluster-a/namespace.yaml
   - k8s/cluster-a/rbac.yaml
-  - k8s/cluster-a/mariadb-nodeport.yaml  # MariaDB deployment
-  - k8s/cluster-a/test-clients.yaml      # Test clients for local testing
-  - k8s/cluster-a/kube-federated-auth-serviceaccount.yaml
-  - k8s/cluster-a/kube-federated-auth-configmap.yaml
-  - k8s/cluster-a/kube-federated-auth-deployment.yaml
-  - k8s/cluster-a/kube-federated-auth-service.yaml
-  - k8s/cluster-a/kube-federated-auth-networkpolicy.yaml
-
----
-apiVersion: skaffold/v4beta7
-kind: Config
-metadata:
-  name: cluster-b-client
-
-# Depend on main config for images
-requires:
-  - configs: ["mariadb-2clusters"]
-    activeProfiles: []
-
-# Deploy to cluster-b
-deploy:
-  kubeContext: kind-cluster-b
-  kubectl: {}
-
-manifests:
-  rawYaml:
-  - k8s/cluster-b/namespace.yaml
-  - k8s/cluster-b/test-client-remote.yaml
+  - k8s/cluster-a/mariadb-nodeport.yaml
+  - k8s/cluster-a/test-clients.yaml

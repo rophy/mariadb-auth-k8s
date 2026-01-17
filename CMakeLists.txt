@@ -21,11 +21,10 @@ MESSAGE(STATUS "Found MariaDB server headers: ${MARIADB_SERVER_INCLUDE_DIR}")
 INCLUDE_DIRECTORIES(${MARIADB_SERVER_INCLUDE_DIR})
 
 # Find all required dependencies
-# Unified plugin needs: libcurl, json-c, OpenSSL
+# auth_k8s plugin needs: libcurl, json-c
 FIND_PACKAGE(CURL REQUIRED)
 FIND_PACKAGE(PkgConfig REQUIRED)
 PKG_CHECK_MODULES(JSON_C REQUIRED json-c)
-FIND_PACKAGE(OpenSSL REQUIRED)
 
 # Compiler flags matching MariaDB plugin standards
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -fPIC")
@@ -34,16 +33,14 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GNU_SOURCE")
 # Define MYSQL_DYNAMIC_PLUGIN for dynamic library loading
 ADD_DEFINITIONS(-DMYSQL_DYNAMIC_PLUGIN)
 
-# Build unified plugin as a module
+# Build auth_k8s plugin as a module
 ADD_LIBRARY(auth_k8s MODULE
     src/auth_k8s.c
-    src/jwt_crypto.c
+    src/tokenreview_api.c
 )
 TARGET_LINK_LIBRARIES(auth_k8s
     ${CURL_LIBRARIES}
     ${JSON_C_LIBRARIES}
-    OpenSSL::SSL
-    OpenSSL::Crypto
 )
 TARGET_INCLUDE_DIRECTORIES(auth_k8s PRIVATE
     ${CURL_INCLUDE_DIRS}
@@ -80,8 +77,8 @@ MESSAGE(STATUS "==========================================")
 MESSAGE(STATUS "MariaDB K8s Auth Plugin Build Configuration")
 MESSAGE(STATUS "==========================================")
 MESSAGE(STATUS "Server plugin: auth_k8s.so")
-MESSAGE(STATUS "Validation: AUTH API (primary) + JWKS (fallback)")
-MESSAGE(STATUS "Dependencies: libcurl, libjson-c, OpenSSL")
+MESSAGE(STATUS "Validation: Kubernetes TokenReview API")
+MESSAGE(STATUS "Dependencies: libcurl, libjson-c")
 MESSAGE(STATUS "Install to: ${PLUGIN_DIR}")
 MESSAGE(STATUS "==========================================")
 MESSAGE(STATUS "")

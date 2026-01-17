@@ -10,7 +10,7 @@ MARIADB_VERSION := 10.6.22
 init:
 	@./scripts/download-headers.sh $(MARIADB_VERSION)
 
-# Build the unified plugin (AUTH API + JWKS fallback)
+# Build the auth_k8s plugin
 build:
 	@./scripts/build.sh
 
@@ -20,75 +20,67 @@ clean:
 	rm -rf build/
 	@echo "Clean complete"
 
-# Create kind clusters for multi-cluster testing
+# Create kind cluster for testing
 kind:
 	@echo "=========================================="
-	@echo "Setting up Kind Clusters"
+	@echo "Setting up Kind Cluster"
 	@echo "=========================================="
 	@./scripts/setup-kind-clusters.sh
 
-# Deploy to multi-cluster environment
+# Deploy to kind cluster
 deploy: build
 	@echo "=========================================="
-	@echo "Deploying to Multi-Cluster Environment"
+	@echo "Deploying to Kind Cluster"
 	@echo "=========================================="
 	@echo ""
-	@echo "Step 1: Ensuring kind clusters exist..."
+	@echo "Step 1: Ensuring kind cluster exists..."
 	@./scripts/setup-kind-clusters.sh
 	@echo ""
 	@echo "Step 2: Deploying with skaffold..."
 	@skaffold run
 	@echo ""
-	@echo "Step 3: Configuring multi-cluster authentication..."
-	@./scripts/setup-multicluster.sh
-	@echo ""
 	@echo "Deployment complete!"
 	@echo ""
 	@echo "Next: Run 'make test' to verify authentication"
 
-# Run multi-cluster authentication tests
+# Run authentication tests
 test:
 	@echo "=========================================="
-	@echo "Running Multi-Cluster Authentication Tests"
+	@echo "Running Authentication Tests"
 	@echo "=========================================="
 	@./scripts/test.sh
 
-# Destroy kind clusters and all deployments
+# Destroy kind cluster and all deployments
 destroy:
 	@echo "=========================================="
-	@echo "Destroying Multi-Cluster Environment"
+	@echo "Destroying Kind Cluster"
 	@echo "=========================================="
 	@echo ""
-	@echo "Deleting kind clusters..."
+	@echo "Deleting kind cluster..."
 	@kind delete cluster --name cluster-a 2>/dev/null || echo "Cluster-a already deleted"
-	@kind delete cluster --name cluster-b 2>/dev/null || echo "Cluster-b already deleted"
 	@echo ""
 	@echo "Destroy complete!"
 
 # Show help
 help:
-	@echo "MariaDB K8s Auth Plugin - Multi-Cluster Testing"
+	@echo "MariaDB K8s Auth Plugin"
 	@echo ""
 	@echo "Build targets:"
 	@echo "  make init    - Download and package MariaDB server headers"
-	@echo "  make build   - Build unified plugin (AUTH API + JWKS fallback)"
+	@echo "  make build   - Build auth_k8s plugin"
 	@echo "  make clean   - Clean build artifacts"
 	@echo ""
-	@echo "Multi-cluster environment:"
-	@echo "  make kind    - Create two kind clusters (cluster-a, cluster-b)"
-	@echo "  make deploy  - Build plugin, setup clusters, deploy everything"
-	@echo "  make test    - Run multi-cluster authentication tests"
-	@echo "  make destroy - Destroy everything (deployments + clusters)"
+	@echo "Development environment:"
+	@echo "  make kind    - Create kind cluster (cluster-a)"
+	@echo "  make deploy  - Build plugin, setup cluster, deploy everything"
+	@echo "  make test    - Run authentication tests"
+	@echo "  make destroy - Destroy everything (deployments + cluster)"
 	@echo ""
 	@echo "Workflow:"
-	@echo "  1. make kind    - Create clusters (one-time setup)"
-	@echo "  2. make deploy  - Deploy MariaDB, kube-federated-auth, test clients"
+	@echo "  1. make kind    - Create cluster (one-time setup)"
+	@echo "  2. make deploy  - Deploy MariaDB and test clients"
 	@echo "  3. make test    - Run authentication tests"
-	@echo "  4. make destroy - Destroy clusters when done"
+	@echo "  4. make destroy - Destroy cluster when done"
 	@echo ""
 	@echo "Quick start:"
 	@echo "  make deploy && make test"
-	@echo ""
-	@echo "Note: The unified plugin uses:"
-	@echo "  - AUTH API (kube-federated-auth) for multi-cluster validation"
-	@echo "  - JWKS fallback for local cluster when AUTH API unavailable"

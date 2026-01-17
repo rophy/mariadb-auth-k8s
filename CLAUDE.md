@@ -6,30 +6,29 @@
 # Clean build artifacts
 make clean
 
-# Build unified plugin (AUTH API + JWKS fallback)
+# Build auth_k8s plugin
 make build
 
-# Deploy to local Kind clusters
+# Deploy to local Kind cluster
 make deploy
 
 # Run tests
 make test
 
-# Destroy clusters when done
+# Destroy cluster when done
 make destroy
 ```
 
 ## Local Development Setup
 
-The project uses two Kind clusters for multi-cluster testing:
-- **cluster-a**: Runs MariaDB + kube-federated-auth service
-- **cluster-b**: Remote cluster with test client
+The project uses a Kind cluster for testing:
+- **cluster-a**: Runs MariaDB with K8s auth plugin and test clients
 
 ```bash
-# Setup Kind clusters (if not exists)
+# Setup Kind cluster (if not exists)
 make kind
 
-# Deploy everything (builds images, deploys to both clusters)
+# Deploy everything (builds images, deploys to cluster)
 make deploy
 
 # Run authentication tests
@@ -40,78 +39,41 @@ make test
 
 ```
 src/                              # MariaDB authentication plugin (C)
-  auth_k8s.c                      # Unified plugin (AUTH API + JWKS fallback)
-  jwt_crypto.c/h                  # JWT cryptographic operations
-  tokenreview_api.c/h             # TokenReview API client (kept for future use)
-  auth_k8s_tokenreview.c          # TokenReview-only plugin (kept for future use)
+  auth_k8s.c                      # Main plugin source
+  tokenreview_api.c/h             # TokenReview API client
 
 k8s/
-  cluster-a/                      # MariaDB cluster manifests
+  cluster-a/                      # Kubernetes manifests
     mariadb-nodeport.yaml         # MariaDB deployment + NodePort
-    kube-federated-auth-*.yaml    # Token validator service
-    test-clients.yaml             # Local test clients
-  cluster-b/                      # Remote cluster manifests
-    test-client-remote.yaml       # Remote test client
+    test-clients.yaml             # Test clients
 
 scripts/
-  setup-kind-clusters.sh          # Create Kind clusters
-  setup-multicluster.sh           # Configure cross-cluster auth
+  setup-kind-clusters.sh          # Create Kind cluster
   test.sh                         # Run authentication tests
   download-headers.sh             # Download MariaDB headers
 ```
 
-## Unified Plugin Validation Flow
+## Authentication Flow
 
-The unified plugin validates tokens with automatic fallback:
+The plugin validates tokens using the Kubernetes TokenReview API:
 
-1. **AUTH API** (if `KUBE_FEDERATED_AUTH_URL` is set)
-   - Supports multi-cluster validation via kube-federated-auth
-   - Full revocation support (uses TokenReview internally)
+1. Client connects with username `namespace/serviceaccount` and JWT token as password
+2. Plugin calls K8s TokenReview API to validate the token
+3. TokenReview returns the authenticated identity
+4. Plugin verifies the identity matches the requested username
 
-2. **JWKS fallback** (for local cluster only)
-   - Falls back when AUTH API is unavailable
-   - Cross-cluster requests fail without AUTH API
-
-Username format: `cluster/namespace/serviceaccount`
-- 3-part: `cluster-b/default/myapp` (cross-cluster)
-- 3-part with "local": `local/default/myapp` (local cluster)
-- 2-part: `default/myapp` (local cluster, implicit)
-
-## Testing the kube-federated-auth Service
-
-```bash
-# Check logs
-kubectl logs -n mariadb-auth-test -l app=kube-federated-auth --tail=20 --context kind-cluster-a
-
-# Health check
-kubectl exec -n mariadb-auth-test deploy/client-user1 --context kind-cluster-a -- \
-  curl -s http://kube-federated-auth:8080/health
-
-# List configured clusters
-kubectl exec -n mariadb-auth-test deploy/client-user1 --context kind-cluster-a -- \
-  curl -s http://kube-federated-auth:8080/clusters
-
-# Validate a token
-TOKEN=$(kubectl create token user1 --context kind-cluster-a -n mariadb-auth-test --duration=1h)
-kubectl exec -n mariadb-auth-test deploy/client-user1 --context kind-cluster-a -- \
-  curl -s -X POST http://kube-federated-auth:8080/validate \
-  -H "Content-Type: application/json" \
-  -d "{\"token\": \"$TOKEN\", \"cluster\": \"local\"}"
-```
+Username format: `namespace/serviceaccount`
+- Example: `default/myapp`
+- Example: `mariadb-auth-test/user1`
 
 ## Testing MariaDB Authentication
 
 ```bash
-# Test local cluster authentication
+# Test authentication
 kubectl exec -n mariadb-auth-test deploy/client-user1 --context kind-cluster-a -- \
-  mysql -h mariadb -u 'local/mariadb-auth-test/user1' -p"$(kubectl create token user1 -n mariadb-auth-test --context kind-cluster-a)" \
+  mysql -h mariadb -u 'mariadb-auth-test/user1' \
+  -p"$(kubectl create token user1 -n mariadb-auth-test --context kind-cluster-a)" \
   -e "SELECT USER(), CURRENT_USER()"
-
-# Test cross-cluster authentication (from cluster-b to cluster-a)
-TOKEN=$(kubectl create token remote-user --context kind-cluster-b -n remote-test --duration=1h)
-kubectl exec -n remote-test deploy/remote-client --context kind-cluster-b -- \
-  mysql -h 192.168.128.2 -P 30306 -u 'cluster-b/remote-test/remote-user' -p"$TOKEN" \
-  -e "SHOW DATABASES"
 ```
 
 ## Git Commit Convention

@@ -32,10 +32,6 @@ spec:
           value: "yes"
         - name: MYSQL_DATABASE
           value: "testdb"
-        - name: KUBE_FEDERATED_AUTH_URL
-          value: "http://kube-federated-auth.mariadb-auth-test.svc.cluster.local:8080/validate"
-        - name: MAX_TOKEN_TTL
-          value: "3600"
         volumeMounts:
         - name: mysql-data
           mountPath: /var/lib/mysql

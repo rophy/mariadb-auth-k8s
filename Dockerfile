@@ -14,7 +14,6 @@ RUN apt-get update && apt-get install -y \
     libmariadb-dev \
     libcurl4-openssl-dev \
     libjson-c-dev \
-    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and extract MariaDB headers to /opt
@@ -34,7 +33,7 @@ COPY include/generate-version.sh /workspace/
 RUN chmod +x generate-version.sh && \
     ./generate-version.sh "${VERSION}" src/version.h
 
-# Build unified plugin
+# Build auth_k8s plugin
 RUN mkdir -p build && cd build && \
     cmake .. && \
     make && \

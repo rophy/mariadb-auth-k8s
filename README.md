@@ -5,14 +5,9 @@ A MariaDB authentication plugin that validates Kubernetes ServiceAccount tokens,
 ## Features
 
 - **Kubernetes-native authentication**: Uses ServiceAccount tokens instead of passwords
-- **Multi-cluster support**: Authenticate users from multiple Kubernetes clusters via [kube-federated-auth](https://github.com/rophy/kube-federated-auth)
-- **Automatic fallback**: AUTH API (primary) → JWKS (local fallback)
+- **TokenReview API**: Validates tokens through the standard Kubernetes API
 - **Zero password management**: Tokens are automatically mounted by Kubernetes
 - **No client plugin required**: Uses built-in `mysql_clear_password` plugin
-
-## Dependencies
-
-For multi-cluster support, this plugin requires [kube-federated-auth](https://github.com/rophy/kube-federated-auth) - a Kubernetes-native token validation service that federates authentication across multiple clusters.
 
 ## Architecture
 
@@ -21,36 +16,30 @@ For multi-cluster support, this plugin requires [kube-federated-auth](https://gi
 │                 Token Validation Flow                       │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  1. Parse username                                          │
-│     ├─ 3-part (cluster/ns/sa) → extract cluster             │
-│     │   └─ if cluster == "local" → is_local = true          │
-│     └─ 2-part (ns/sa) → is_local = true, cluster = "local"  │
+│  1. Client connects with:                                   │
+│     - Username: namespace/serviceaccount                    │
+│     - Password: ServiceAccount JWT token                    │
 │                                                             │
-│  2. AUTH API configured? (KUBE_FEDERATED_AUTH_URL set)      │
-│     ├─ Yes → Try AUTH API (kube-federated-auth service)     │
-│     │        ├─ Success → DONE                              │
-│     │        └─ Unavailable (network error) → Fallback      │
-│     └─ No → Fallback                                        │
+│  2. Plugin calls Kubernetes TokenReview API                 │
+│     POST /apis/authentication.k8s.io/v1/tokenreviews        │
 │                                                             │
-│  3. Is cross-cluster? (cluster != "local" && 3-part)        │
-│     └─ Yes → FAIL (cannot validate without AUTH API)        │
+│  3. Kubernetes validates token and returns identity         │
+│     - Namespace                                             │
+│     - ServiceAccount name                                   │
 │                                                             │
-│  4. JWKS validation (local OIDC discovery)                  │
-│     ├─ Success → DONE                                       │
-│     └─ Fail → FAIL                                          │
+│  4. Plugin verifies identity matches requested username     │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### Username Format
 
-MariaDB username format: `cluster/namespace/serviceaccount`
+MariaDB username format: `namespace/serviceaccount`
 
-| Format | Example | Cluster |
-|--------|---------|---------|
-| 3-part | `cluster-b/default/myapp` | cross-cluster |
-| 3-part with "local" | `local/default/myapp` | local cluster |
-| 2-part | `default/myapp` | local cluster (implicit) |
+| Example | Description |
+|---------|-------------|
+| `default/myapp` | ServiceAccount "myapp" in namespace "default" |
+| `production/api-server` | ServiceAccount "api-server" in namespace "production" |
 
 ## Quick Start
 
@@ -61,10 +50,10 @@ MariaDB username format: `cluster/namespace/serviceaccount`
 - kubectl
 - skaffold
 
-### Multi-Cluster Testing
+### Local Testing
 
 ```bash
-# Deploy everything (builds plugin, creates clusters, deploys)
+# Deploy everything (builds plugin, creates cluster, deploys)
 make deploy
 
 # Run tests
@@ -76,24 +65,22 @@ make destroy
 
 Expected output:
 ```
-✅ Test 1 PASSED: Local cluster authentication works
-✅ Test 2 PASSED: Direct cross-cluster authentication works!
-✅ Test 3 PASSED: Token TTL validation works correctly
-✅ Test 4 PASSED: Permission restrictions work correctly
-✅ All Multi-Cluster Tests PASSED!
+✅ Test 1 PASSED: Basic authentication works
+✅ Test 2 PASSED: Permission restrictions work correctly
+✅ All Tests PASSED!
 ```
 
 ## Makefile Commands
 
 ```bash
 make init      # Download MariaDB server headers (one-time)
-make build     # Build unified plugin
+make build     # Build auth_k8s plugin
 make clean     # Clean build artifacts
 
-make kind      # Create kind clusters (cluster-a, cluster-b)
+make kind      # Create kind cluster
 make deploy    # Build + deploy everything
 make test      # Run authentication tests
-make destroy   # Destroy clusters
+make destroy   # Destroy cluster
 ```
 
 ## Configuration
@@ -101,15 +88,11 @@ make destroy   # Destroy clusters
 ### Creating Users
 
 ```sql
--- Local cluster user
-CREATE USER 'local/mariadb-auth-test/user1'@'%' IDENTIFIED VIA auth_k8s;
-GRANT ALL PRIVILEGES ON *.* TO 'local/mariadb-auth-test/user1'@'%';
+-- Grant full access
+CREATE USER 'mariadb-auth-test/user1'@'%' IDENTIFIED VIA auth_k8s;
+GRANT ALL PRIVILEGES ON *.* TO 'mariadb-auth-test/user1'@'%';
 
--- Cross-cluster user
-CREATE USER 'cluster-b/remote-test/remote-user'@'%' IDENTIFIED VIA auth_k8s;
-GRANT ALL PRIVILEGES ON *.* TO 'cluster-b/remote-test/remote-user'@'%';
-
--- 2-part format (local cluster implied)
+-- Grant limited access
 CREATE USER 'app-ns/api-service'@'%' IDENTIFIED VIA auth_k8s;
 GRANT SELECT ON app_db.* TO 'app-ns/api-service'@'%';
 ```
@@ -121,41 +104,29 @@ GRANT SELECT ON app_db.* TO 'app-ns/api-service'@'%';
 TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
 
 # Connect to MariaDB
-mysql -h mariadb -u 'local/namespace/serviceaccount' -p"$TOKEN"
+mysql -h mariadb -u 'namespace/serviceaccount' -p"$TOKEN"
 ```
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `KUBE_FEDERATED_AUTH_URL` | AUTH API endpoint | (none - enables AUTH API if set) |
-| `MAX_TOKEN_TTL` | Maximum allowed token lifetime in seconds | 3600 |
 
 ## Project Structure
 
 ```
 src/
-  auth_k8s.c              # Unified plugin (AUTH API + JWKS fallback)
-  jwt_crypto.c/h          # JWT cryptographic operations
-  tokenreview_api.c/h     # TokenReview API client (kept for future use)
-  auth_k8s_tokenreview.c  # TokenReview-only plugin (kept for future use)
+  auth_k8s.c              # Main plugin source
+  tokenreview_api.c/h     # TokenReview API client
 
 k8s/
-  cluster-a/              # MariaDB + kube-federated-auth
-  cluster-b/              # Remote test client
+  cluster-a/              # Kubernetes manifests
 
 scripts/
-  setup-kind-clusters.sh  # Create Kind clusters
-  setup-multicluster.sh   # Configure cross-cluster auth
+  setup-kind-clusters.sh  # Create Kind cluster
   test.sh                 # Run authentication tests
 ```
 
 ## Security Considerations
 
-- **AUTH API**: Full revocation support via TokenReview (recommended for production)
-- **JWKS fallback**: Deleted ServiceAccount tokens remain valid until expiry
-  - Mitigate by using short token TTL (`MAX_TOKEN_TTL`)
+- **Token revocation**: TokenReview API checks token validity in real-time; deleted ServiceAccounts are immediately rejected
 - **Transport**: Use TLS/SSL in production (tokens sent as cleartext password)
+- **Token lifetime**: Use short-lived tokens via projected volumes or `kubectl create token --duration`
 
 ## Troubleshooting
 
@@ -166,12 +137,8 @@ mysql -u root -e "SHOW PLUGINS" | grep auth_k8s
 # Check MariaDB logs
 kubectl logs -n mariadb-auth-test -l app=mariadb | grep "K8s Auth"
 
-# Check kube-federated-auth logs
-kubectl logs -n mariadb-auth-test -l app=kube-federated-auth
-
-# Test token validation manually
-kubectl exec -n mariadb-auth-test deploy/client-user1 -- \
-  curl -s http://kube-federated-auth:8080/clusters
+# Verify ServiceAccount token
+kubectl create token myapp -n mynamespace
 ```
 
 ## License
