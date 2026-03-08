@@ -1,0 +1,38 @@
+FROM debian:bookworm-slim
+
+ARG KIND_VERSION_OLD=v0.22.0
+ARG KIND_VERSION_NEW=v0.31.0
+ARG KUBECTL_VERSION=v1.35.2
+ARG SKAFFOLD_VERSION=v2.17.2
+ARG BATS_VERSION=v1.13.0
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    make \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# kind - two versions for different K8s version support
+RUN curl -Lo /usr/local/bin/kind-v0.22.0 \
+    "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION_OLD}/kind-linux-amd64" \
+    && chmod +x /usr/local/bin/kind-v0.22.0 \
+    && curl -Lo /usr/local/bin/kind-v0.31.0 \
+    "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION_NEW}/kind-linux-amd64" \
+    && chmod +x /usr/local/bin/kind-v0.31.0
+
+# kubectl
+RUN curl -fLo /usr/local/bin/kubectl \
+    "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" \
+    && chmod +x /usr/local/bin/kubectl
+
+# skaffold
+RUN curl -Lo /usr/local/bin/skaffold \
+    "https://storage.googleapis.com/skaffold/releases/${SKAFFOLD_VERSION}/skaffold-linux-amd64" \
+    && chmod +x /usr/local/bin/skaffold
+
+# bats
+RUN git clone --branch "${BATS_VERSION}" --depth 1 \
+    https://github.com/bats-core/bats-core.git /tmp/bats-core \
+    && /tmp/bats-core/install.sh /usr/local \
+    && rm -rf /tmp/bats-core

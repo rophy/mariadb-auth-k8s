@@ -16,3 +16,62 @@ jobs:
           key: mariadb-headers-${{ matrix.mariadb-version }}
       - run: make init MARIADB_VERSION=${{ matrix.mariadb-version }}
       - run: make unit-test MARIADB_VERSION=${{ matrix.mariadb-version }}
+
+  e2e-test:
+    needs: unit-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Latin square: each MariaDB and K8s version appears exactly once
+        # Latin square: each MariaDB and K8s version appears exactly once
+        include:
+          - mariadb-version: "10.6.22"
+            k8s-version: "1.24"
+            kind-node-image: "kindest/node:v1.24.17"
+            kind-binary: "kind-v0.22.0"
+          - mariadb-version: "10.11.10"
+            k8s-version: "1.31"
+            kind-node-image: "kindest/node:v1.31.14"
+            kind-binary: "kind-v0.31.0"
+          - mariadb-version: "11.4.5"
+            k8s-version: "1.35"
+            kind-node-image: "kindest/node:v1.35.0"
+            kind-binary: "kind-v0.31.0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools from CI image
+        run: |
+          docker pull ghcr.io/rophy/mariadb-auth-k8s:ci
+          cid=$(docker create ghcr.io/rophy/mariadb-auth-k8s:ci)
+          sudo docker cp "$cid":/usr/local/bin/${{ matrix.kind-binary }} /usr/local/bin/kind
+          sudo docker cp "$cid":/usr/local/bin/kubectl /usr/local/bin/
+          sudo docker cp "$cid":/usr/local/bin/skaffold /usr/local/bin/
+          sudo docker cp "$cid":/usr/local/bin/bats /usr/local/bin/
+          sudo docker cp "$cid":/usr/local/libexec/bats-core /usr/local/libexec/
+          docker rm "$cid"
+
+      - uses: actions/cache@v4
+        with:
+          path: include/mariadb-${{ matrix.mariadb-version }}-headers.tar.gz
+          key: mariadb-headers-${{ matrix.mariadb-version }}
+
+      - name: Download headers
+        run: make init MARIADB_VERSION=${{ matrix.mariadb-version }}
+
+      - name: Build plugin
+        run: make build MARIADB_VERSION=${{ matrix.mariadb-version }}
+
+      - name: Create Kind cluster (K8s ${{ matrix.k8s-version }})
+        run: ./scripts/setup-kind-clusters.sh "${{ matrix.kind-node-image }}"
+
+      - name: Deploy
+        run: skaffold run
+
+      - name: Run e2e tests
+        run: make e2e-test
+
+      - name: Show MariaDB logs on failure
+        if: failure()
+        run: kubectl logs -n mariadb-auth-test -l app=mariadb --context kind-cluster-a --tail=50
