@@ -2,9 +2,10 @@
 set -e
 
 # Build MariaDB K8s Auth Plugin
-# Usage: ./scripts/build.sh [version]
+# Usage: ./scripts/build.sh [version] [mariadb_version]
 #
 # If no version provided, derives from git describe.
+# mariadb_version defaults to 10.6.22.
 
 cd "$(dirname "$0")/.."
 
@@ -15,10 +16,13 @@ else
     VERSION=$(git describe --tags --always 2>/dev/null || echo "0.0")
 fi
 
-echo "Building MariaDB K8s Auth Plugin v${VERSION}..."
+MARIADB_VERSION="${2:-10.6.22}"
+
+echo "Building MariaDB K8s Auth Plugin v${VERSION} (MariaDB ${MARIADB_VERSION})..."
 
 # Build Docker image
 docker build --build-arg VERSION="${VERSION}" \
+    --build-arg MARIADB_VERSION="${MARIADB_VERSION}" \
     -t mariadb-auth-k8s:"${VERSION}" \
     -t mariadb-auth-k8s:latest \
     .

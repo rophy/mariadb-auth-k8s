@@ -12,7 +12,7 @@ init:
 
 # Build the auth_k8s plugin
 build:
-	@./scripts/build.sh
+	@./scripts/build.sh "" $(MARIADB_VERSION)
 
 # Clean build artifacts
 clean:
@@ -45,7 +45,7 @@ deploy: build
 
 # Run unit tests (no cluster needed)
 unit-test:
-	@docker build --target test -t mariadb-auth-k8s:test .
+	@docker build --build-arg MARIADB_VERSION=$(MARIADB_VERSION) --target test -t mariadb-auth-k8s:test .
 
 # Run E2E authentication tests (BATS, needs deployed cluster)
 e2e-test:
@@ -105,3 +105,9 @@ help:
 	@echo ""
 	@echo "Quick start:"
 	@echo "  make deploy && make e2e-test"
+	@echo ""
+	@echo "Multi-version build:"
+	@echo "  make init MARIADB_VERSION=10.6.22"
+	@echo "  make build MARIADB_VERSION=10.6.22"
+	@echo "  make unit-test MARIADB_VERSION=10.6.22"
+	@echo "  (default: MARIADB_VERSION=$(MARIADB_VERSION))"

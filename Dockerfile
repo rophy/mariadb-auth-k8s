@@ -2,6 +2,7 @@ FROM debian:bookworm AS builder
 
 # Build arguments
 ARG VERSION=dev
+ARG MARIADB_VERSION=10.6.22
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -17,7 +18,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and extract MariaDB headers to /opt
-COPY include/mariadb-*-headers.tar.gz /tmp/mariadb-headers.tar.gz
+COPY include/mariadb-${MARIADB_VERSION}-headers.tar.gz /tmp/mariadb-headers.tar.gz
 RUN tar -xzf /tmp/mariadb-headers.tar.gz -C /opt && \
     rm /tmp/mariadb-headers.tar.gz
 

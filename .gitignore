@@ -21,3 +21,6 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+
+# MariaDB header tarballs (downloaded via make init)
+include/mariadb-*-headers.tar.gz

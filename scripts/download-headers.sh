@@ -35,9 +35,8 @@ echo ""
 
 # Check if output already exists
 if [ -f "${OUTPUT_FILE}" ]; then
-    echo "Error: ${OUTPUT_FILE} already exists"
-    echo "Remove it first if you want to re-download"
-    exit 1
+    echo "Headers already exist: ${OUTPUT_FILE} (skipping download)"
+    exit 0
 fi
 
 # Create output directory

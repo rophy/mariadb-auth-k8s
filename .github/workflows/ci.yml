@@ -1,0 +1,18 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  unit-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        mariadb-version: ["10.6.22", "10.11.10", "11.4.5"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: include/mariadb-${{ matrix.mariadb-version }}-headers.tar.gz
+          key: mariadb-headers-${{ matrix.mariadb-version }}
+      - run: make init MARIADB_VERSION=${{ matrix.mariadb-version }}
+      - run: make unit-test MARIADB_VERSION=${{ matrix.mariadb-version }}

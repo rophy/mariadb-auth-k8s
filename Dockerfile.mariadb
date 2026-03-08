@@ -1,4 +1,5 @@
-FROM mariadb:10.6
+ARG MARIADB_BASE=10.6
+FROM mariadb:${MARIADB_BASE}
 
 # Install runtime dependencies for the plugin
 RUN apt-get update && apt-get install -y \
