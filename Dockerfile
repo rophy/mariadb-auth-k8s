@@ -40,6 +40,20 @@ RUN mkdir -p build && cd build && \
     mkdir -p /output && \
     cp auth_k8s.so /output/
 
+# ==========================================
+# Test stage: build and run unit tests
+# ==========================================
+FROM builder AS test
+
+RUN apt-get update && apt-get install -y libcmocka-dev && rm -rf /var/lib/apt/lists/*
+
+COPY test/ /workspace/test/
+
+RUN cd build && \
+    cmake .. -DBUILD_TESTS=ON && \
+    make && \
+    ctest --output-on-failure
+
 # Distribute the plugin with a minimal image.
 FROM busybox
 

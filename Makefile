@@ -1,4 +1,4 @@
-.PHONY: init build clean kind deploy e2e-test test-legacy install-bats destroy help
+.PHONY: init build clean kind deploy e2e-test unit-test test-legacy install-bats destroy help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -42,6 +42,10 @@ deploy: build
 	@echo "Deployment complete!"
 	@echo ""
 	@echo "Next: Run 'make e2e-test' to verify authentication"
+
+# Run unit tests (no cluster needed)
+unit-test:
+	@docker build --target test -t mariadb-auth-k8s:test .
 
 # Run E2E authentication tests (BATS, needs deployed cluster)
 e2e-test:
@@ -87,6 +91,7 @@ help:
 	@echo "Development environment:"
 	@echo "  make kind    - Create kind cluster (cluster-a)"
 	@echo "  make deploy  - Build plugin, setup cluster, deploy everything"
+	@echo "  make unit-test    - Run unit tests (no cluster needed)"
 	@echo "  make e2e-test     - Run E2E authentication tests (BATS)"
 	@echo "  make test-legacy  - Run legacy test script"
 	@echo "  make install-bats - Install BATS test framework"

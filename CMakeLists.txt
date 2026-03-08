@@ -82,3 +82,30 @@ MESSAGE(STATUS "Dependencies: libcurl, libjson-c")
 MESSAGE(STATUS "Install to: ${PLUGIN_DIR}")
 MESSAGE(STATUS "==========================================")
 MESSAGE(STATUS "")
+
+# ==========================================
+# Unit tests (opt-in)
+# ==========================================
+OPTION(BUILD_TESTS "Build unit tests" OFF)
+IF(BUILD_TESTS)
+    ENABLE_TESTING()
+    PKG_CHECK_MODULES(CMOCKA REQUIRED cmocka)
+
+    ADD_EXECUTABLE(test_tokenreview_api
+        test/unit/test_tokenreview_api.c
+        src/tokenreview_api.c
+    )
+    TARGET_INCLUDE_DIRECTORIES(test_tokenreview_api PRIVATE
+        ${CURL_INCLUDE_DIRS}
+        ${JSON_C_INCLUDE_DIRS}
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    TARGET_LINK_LIBRARIES(test_tokenreview_api
+        ${CMOCKA_LIBRARIES}
+        ${CURL_LIBRARIES}
+        ${JSON_C_LIBRARIES}
+        -Wl,--wrap=curl_easy_init,--wrap=curl_easy_perform,--wrap=curl_easy_setopt,--wrap=curl_easy_getinfo,--wrap=curl_easy_cleanup,--wrap=curl_easy_strerror,--wrap=curl_slist_append,--wrap=curl_slist_free_all,--wrap=fopen,--wrap=fread,--wrap=fclose,--wrap=fseek,--wrap=ftell
+    )
+
+    ADD_TEST(NAME unit_tests COMMAND test_tokenreview_api)
+ENDIF()
