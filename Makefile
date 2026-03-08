@@ -1,4 +1,4 @@
-.PHONY: init build clean kind deploy test destroy help
+.PHONY: init build clean kind deploy e2e-test test-legacy install-bats destroy help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -41,14 +41,28 @@ deploy: build
 	@echo ""
 	@echo "Deployment complete!"
 	@echo ""
-	@echo "Next: Run 'make test' to verify authentication"
+	@echo "Next: Run 'make e2e-test' to verify authentication"
 
-# Run authentication tests
-test:
+# Run E2E authentication tests (BATS, needs deployed cluster)
+e2e-test:
+	@bats test/e2e/
+
+# Run legacy authentication tests
+test-legacy:
 	@echo "=========================================="
-	@echo "Running Authentication Tests"
+	@echo "Running Authentication Tests (legacy)"
 	@echo "=========================================="
 	@./scripts/test.sh
+
+# Install BATS test framework
+install-bats:
+	@echo "Installing bats-core..."
+	@command -v bats >/dev/null 2>&1 && echo "bats is already installed" || { \
+		git clone https://github.com/bats-core/bats-core.git /tmp/bats-core && \
+		cd /tmp/bats-core && sudo ./install.sh /usr/local && \
+		rm -rf /tmp/bats-core && \
+		echo "bats installed successfully"; \
+	}
 
 # Destroy kind cluster and all deployments
 destroy:
@@ -73,14 +87,16 @@ help:
 	@echo "Development environment:"
 	@echo "  make kind    - Create kind cluster (cluster-a)"
 	@echo "  make deploy  - Build plugin, setup cluster, deploy everything"
-	@echo "  make test    - Run authentication tests"
-	@echo "  make destroy - Destroy everything (deployments + cluster)"
+	@echo "  make e2e-test     - Run E2E authentication tests (BATS)"
+	@echo "  make test-legacy  - Run legacy test script"
+	@echo "  make install-bats - Install BATS test framework"
+	@echo "  make destroy      - Destroy everything (deployments + cluster)"
 	@echo ""
 	@echo "Workflow:"
 	@echo "  1. make kind    - Create cluster (one-time setup)"
 	@echo "  2. make deploy  - Deploy MariaDB and test clients"
-	@echo "  3. make test    - Run authentication tests"
-	@echo "  4. make destroy - Destroy cluster when done"
+	@echo "  3. make e2e-test - Run authentication tests"
+	@echo "  4. make destroy  - Destroy cluster when done"
 	@echo ""
 	@echo "Quick start:"
-	@echo "  make deploy && make test"
+	@echo "  make deploy && make e2e-test"
