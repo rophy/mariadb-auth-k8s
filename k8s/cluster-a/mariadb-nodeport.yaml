@@ -35,6 +35,13 @@ spec:
         volumeMounts:
         - name: mysql-data
           mountPath: /var/lib/mysql
+        - name: tokenreviewer-token
+          mountPath: /var/run/secrets/tokenreviewer
+          readOnly: true
+        - name: auth-k8s-config
+          mountPath: /etc/mysql/mariadb.conf.d/60-auth-k8s.cnf
+          subPath: auth_k8s.cnf
+          readOnly: true
         livenessProbe:
           exec:
             command:
@@ -58,6 +65,25 @@ spec:
       volumes:
       - name: mysql-data
         emptyDir: {}
+      - name: tokenreviewer-token
+        secret:
+          secretName: tokenreviewer-token
+      - name: auth-k8s-config
+        configMap:
+          name: auth-k8s-config
+---
+# Plugin configuration: point auth_k8s to the tokenreviewer SA credentials
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-k8s-config
+  namespace: mariadb-auth-test
+data:
+  auth_k8s.cnf: |
+    [mysqld]
+    plugin_load_add = auth_k8s
+    auth_k8s_token_path = /var/run/secrets/tokenreviewer/token
+    auth_k8s_ca_path = /var/run/secrets/tokenreviewer/ca.crt
 ---
 # Internal ClusterIP service for in-cluster access
 apiVersion: v1

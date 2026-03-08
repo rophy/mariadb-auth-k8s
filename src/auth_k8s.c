@@ -17,6 +17,49 @@
 #endif
 
 /*
+ * Plugin system variables
+ *
+ * Exposed as auth_k8s_api_url, auth_k8s_ca_path, auth_k8s_token_path,
+ * auth_k8s_timeout. All are READONLY (set via my.cnf or command line only).
+ */
+static char *opt_api_url = NULL;
+static char *opt_ca_path = NULL;
+static char *opt_token_path = NULL;
+static int opt_timeout = 10;
+
+static MYSQL_SYSVAR_STR(api_url, opt_api_url,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+    "Kubernetes API server URL",
+    NULL, NULL,
+    "https://kubernetes.default.svc");
+
+static MYSQL_SYSVAR_STR(ca_path, opt_ca_path,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+    "Path to Kubernetes CA certificate",
+    NULL, NULL,
+    "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt");
+
+static MYSQL_SYSVAR_STR(token_path, opt_token_path,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+    "Path to service account token file for TokenReview API calls",
+    NULL, NULL,
+    "/var/run/secrets/kubernetes.io/serviceaccount/token");
+
+static MYSQL_SYSVAR_INT(timeout, opt_timeout,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+    "HTTP timeout in seconds for TokenReview API calls",
+    NULL, NULL,
+    10, 1, 300, 1);
+
+static struct st_mysql_sys_var *auth_k8s_sys_vars[] = {
+    MYSQL_SYSVAR(api_url),
+    MYSQL_SYSVAR(ca_path),
+    MYSQL_SYSVAR(token_path),
+    MYSQL_SYSVAR(timeout),
+    NULL
+};
+
+/*
  * Server authentication function
  *
  * This function is called when a client attempts to authenticate.
@@ -71,9 +114,16 @@ static int auth_k8s_server(MYSQL_PLUGIN_VIO *vio, MYSQL_SERVER_AUTH_INFO *info)
     fprintf(stderr, "K8s Auth: Authenticating user '%s'\n", info->user_name);
 
 #if ENABLE_TOKEN_VALIDATION
+    /* Build config from system variables */
+    k8s_config_t config;
+    config.api_server_url = opt_api_url;
+    config.ca_cert_path = opt_ca_path;
+    config.token_path = opt_token_path;
+    config.timeout_seconds = opt_timeout;
+
     /* Validate token with Kubernetes TokenReview API */
     k8s_token_info_t token_info;
-    int valid = k8s_validate_token(token, &token_info, NULL);
+    int valid = k8s_validate_token(token, &token_info, &config);
 
     free(token);
 
@@ -135,7 +185,7 @@ mysql_declare_plugin(auth_k8s)
     NULL,                 /* Plugin deinit */
     PLUGIN_VERSION,
     NULL,                 /* Status variables */
-    NULL,                 /* System variables */
+    auth_k8s_sys_vars,    /* System variables */
     NULL,                 /* Config options */
     0                     /* Flags */
 }

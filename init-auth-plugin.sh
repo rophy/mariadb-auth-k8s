@@ -6,11 +6,8 @@ set -eo pipefail
 
 echo "=== Installing K8s Auth Plugin ==="
 
-# Install plugin and create users
+# Create users (plugin is loaded via plugin_load_add in config)
 mysql -u root <<EOF
--- Install the K8s auth plugin
-INSTALL SONAME 'auth_k8s';
-
 -- Create users for different namespaces/serviceaccounts
 -- Format: 'namespace/serviceaccount'@'%'
 
