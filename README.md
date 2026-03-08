@@ -1,5 +1,7 @@
 # MariaDB Kubernetes ServiceAccount Authentication Plugin
 
+[![CI](https://github.com/rophy/mariadb-auth-k8s/actions/workflows/ci.yml/badge.svg)](https://github.com/rophy/mariadb-auth-k8s/actions/workflows/ci.yml)
+
 A MariaDB authentication plugin that validates Kubernetes ServiceAccount tokens, enabling database access control based on Kubernetes identities.
 
 ## Features
@@ -8,6 +10,7 @@ A MariaDB authentication plugin that validates Kubernetes ServiceAccount tokens,
 - **TokenReview API**: Validates tokens through the standard Kubernetes API
 - **Zero password management**: Tokens are automatically mounted by Kubernetes
 - **No client plugin required**: Uses built-in `mysql_clear_password` plugin
+- **Multi-version support**: Builds against MariaDB 10.6, 10.11, and 11.4
 
 ## Architecture
 
@@ -49,39 +52,60 @@ MariaDB username format: `namespace/serviceaccount`
 - kind (Kubernetes in Docker)
 - kubectl
 - skaffold
+- bats (for e2e tests — install via `make install-bats`)
 
 ### Local Testing
 
 ```bash
+# Download headers and build plugin
+make init
+make build
+
+# Run unit tests (no cluster needed)
+make unit-test
+
 # Deploy everything (builds plugin, creates cluster, deploys)
 make deploy
 
-# Run tests
-make test
+# Run e2e tests (requires deployed cluster)
+make e2e-test
 
 # Clean up
 make destroy
 ```
 
-Expected output:
+### Multi-Version Builds
+
+Build against a specific MariaDB version by passing `MARIADB_VERSION`:
+
+```bash
+make init MARIADB_VERSION=11.4.5
+make build MARIADB_VERSION=11.4.5
+make unit-test MARIADB_VERSION=11.4.5
 ```
-✅ Test 1 PASSED: Basic authentication works
-✅ Test 2 PASSED: Permission restrictions work correctly
-✅ All Tests PASSED!
-```
+
+Default is `10.6.22`. Supported versions: `10.6.22`, `10.11.10`, `11.4.5`.
 
 ## Makefile Commands
 
 ```bash
-make init      # Download MariaDB server headers (one-time)
-make build     # Build auth_k8s plugin
-make clean     # Clean build artifacts
+# Build
+make init           # Download MariaDB server headers
+make build          # Build auth_k8s plugin
+make clean          # Clean build artifacts
 
-make kind      # Create kind cluster
-make deploy    # Build + deploy everything
-make test      # Run authentication tests
-make destroy   # Destroy cluster
+# Test
+make unit-test      # Run unit tests (no cluster needed)
+make e2e-test       # Run e2e tests with BATS (needs deployed cluster)
+make install-bats   # Install BATS test framework
+
+# Development environment
+make kind           # Create kind cluster
+make deploy         # Build + deploy everything
+make destroy        # Destroy cluster
 ```
+
+All build/test targets accept `MARIADB_VERSION=<version>` (default: `10.6.22`).
 
 ## Configuration
 
@@ -111,15 +135,23 @@ mysql -h mariadb -u 'namespace/serviceaccount' -p"$TOKEN"
 
 ```
 src/
-  auth_k8s.c              # Main plugin source
-  tokenreview_api.c/h     # TokenReview API client
+  auth_k8s.c                      # Main plugin source
+  tokenreview_api.c/h              # TokenReview API client
+
+test/
+  unit/                            # CMocka unit tests
+  e2e/                             # BATS e2e tests
 
 k8s/
-  cluster-a/              # Kubernetes manifests
+  cluster-a/                       # Kubernetes manifests
 
 scripts/
-  setup-kind-clusters.sh  # Create Kind cluster
-  test.sh                 # Run authentication tests
+  download-headers.sh              # Download MariaDB headers
+  build.sh                         # Build plugin via Docker
+  setup-kind-clusters.sh           # Create Kind cluster
+
+.github/workflows/
+  ci.yml                           # CI pipeline (matrix: 10.6, 10.11, 11.4)
 ```
 
 ## Security Considerations
