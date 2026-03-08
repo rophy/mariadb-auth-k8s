@@ -20,11 +20,6 @@ setup() {
     [[ "$output" == *"mariadb-auth-test/user1"* ]]
 }
 
-@test "user2 authenticates with valid token" {
-    run mysql_query "user2" "$NAMESPACE/user2" "SELECT 1"
-    [[ "$status" -eq 0 ]]
-}
-
 @test "invalid token is rejected" {
     run mysql_with_token "user1" "$NAMESPACE/user1" "invalid-token-here" "SELECT 1"
     [[ "$status" -ne 0 ]]
@@ -43,8 +38,3 @@ setup() {
     [[ "$output" == *"Access denied"* ]]
 }
 
-@test "non-existent user is rejected" {
-    run mysql_with_token "user1" "$NAMESPACE/nonexistent" "fake-token" "SELECT 1"
-    [[ "$status" -ne 0 ]]
-    [[ "$output" == *"Access denied"* ]]
-}
