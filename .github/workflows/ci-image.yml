@@ -1,9 +1,6 @@
 name: CI Image
 
 on:
-  push:
-    branches: [main]
-    paths: [Dockerfile.ci]
   workflow_dispatch:
 
 jobs:
