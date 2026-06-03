@@ -15,6 +15,7 @@ build:
       dockerfile: Dockerfile.mariadb
       buildArgs:
         BUILDKIT_INLINE_CACHE: "1"
+        MARIADB_VERSION: "{{.MARIADB_VERSION}}"
   - image: test-client
     docker:
       dockerfile: Dockerfile.client

@@ -45,20 +45,18 @@ spec:
         livenessProbe:
           exec:
             command:
-            - mysqladmin
-            - ping
-            - -h
-            - localhost
+            - bash
+            - -c
+            - "$(command -v mysqladmin || command -v mariadb-admin) ping -h localhost"
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
         readinessProbe:
           exec:
             command:
-            - mysqladmin
-            - ping
-            - -h
-            - localhost
+            - bash
+            - -c
+            - "$(command -v mysqladmin || command -v mariadb-admin) ping -h localhost"
           initialDelaySeconds: 10
           periodSeconds: 5
           timeoutSeconds: 3

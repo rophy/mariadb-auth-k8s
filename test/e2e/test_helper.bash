@@ -60,7 +60,7 @@ mysql_with_token() {
 # Run mysql as root on the MariaDB pod (for checking server config)
 mysql_root() {
     local query="$1"
-    ka exec deployment/mariadb -- mysql -u root -e "$query"
+    ka exec deployment/mariadb -- bash -c "\$(command -v mysql 2>/dev/null || command -v mariadb) -u root -e \"$query\""
 }
 
 # Wait for MariaDB to be ready (30s timeout)

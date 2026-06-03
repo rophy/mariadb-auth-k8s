@@ -1,11 +1,11 @@
-ARG MARIADB_BASE=10.6
-FROM mariadb:${MARIADB_BASE}
+ARG MARIADB_VERSION=10.6.27
+FROM mariadb:${MARIADB_VERSION}
 
 # Install runtime dependencies for the plugin
-RUN apt-get update && apt-get install -y \
-    libcurl4 \
-    libjson-c5 \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y libcurl4 && \
+    apt-get install -y libjson-c5 || apt-get install -y libjson-c4 && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy pre-built server plugin from ./build/ directory
 COPY build/auth_k8s.so /usr/lib/mysql/plugin/

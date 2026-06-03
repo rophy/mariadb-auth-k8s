@@ -6,8 +6,10 @@ set -eo pipefail
 
 echo "=== Installing K8s Auth Plugin ==="
 
+MYSQL_CMD=$(command -v mysql 2>/dev/null || command -v mariadb 2>/dev/null)
+
 # Create users (plugin is loaded via plugin_load_add in config)
-mysql -u root <<EOF
+$MYSQL_CMD -u root <<EOF
 -- Create users for different namespaces/serviceaccounts
 -- Format: 'namespace/serviceaccount'@'%'
 

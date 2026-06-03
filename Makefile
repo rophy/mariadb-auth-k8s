@@ -3,8 +3,9 @@
 # Default target
 .DEFAULT_GOAL := help
 
-# MariaDB version for headers
+# MariaDB version for headers and runtime
 MARIADB_VERSION := 10.6.27
+export MARIADB_VERSION
 
 # Download and package MariaDB server headers
 init:

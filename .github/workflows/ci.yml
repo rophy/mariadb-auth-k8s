@@ -65,7 +65,7 @@ jobs:
         run: ./scripts/setup-kind-clusters.sh "${{ matrix.kind-node-image }}"
 
       - name: Deploy
-        run: skaffold run
+        run: make deploy MARIADB_VERSION=${{ matrix.mariadb-version }}
 
       - name: Run e2e tests
         run: make e2e-test
