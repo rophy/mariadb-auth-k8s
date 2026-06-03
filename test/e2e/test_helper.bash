@@ -63,6 +63,40 @@ mysql_root() {
     ka exec deployment/mariadb -- bash -c "\$(command -v mysql 2>/dev/null || command -v mariadb) -u root -e \"$query\""
 }
 
+# Run mysql as root on a specific MariaDB deployment
+mysql_root_on() {
+    local deployment="$1"
+    local query="$2"
+    ka exec "deployment/$deployment" -- bash -c "\$(command -v mysql 2>/dev/null || command -v mariadb) -u root -e \"$query\""
+}
+
+# Run mysql auth query against a specific MariaDB host from client-user1
+mysql_query_host() {
+    local host="$1"
+    local mysql_user="$2"
+    local query="$3"
+    kexec_user1 "SA_TOKEN=\$(cat /var/run/secrets/kubernetes.io/serviceaccount/token) && mysql -h $host -u '$mysql_user' -p\"\$SA_TOKEN\" -e '$query'"
+}
+
+# Wait for a specific MariaDB deployment to be ready
+wait_for_mariadb_deployment() {
+    local deployment="$1"
+    local service="$2"
+    local attempts=30
+    local i=0
+    echo "# Waiting for $deployment to be ready..." >&3
+    while (( i < attempts )); do
+        if kexec_user1 "mysqladmin -h $service ping" &>/dev/null; then
+            echo "# $deployment is ready" >&3
+            return 0
+        fi
+        sleep 1
+        (( i++ ))
+    done
+    echo "# $deployment did not become ready within ${attempts}s" >&3
+    return 1
+}
+
 # Wait for MariaDB to be ready (30s timeout)
 wait_for_mariadb() {
     local attempts=30
