@@ -58,13 +58,10 @@ jobs:
       - name: Download headers
         run: make init MARIADB_VERSION=${{ matrix.mariadb-version }}
 
-      - name: Build plugin
-        run: make build MARIADB_VERSION=${{ matrix.mariadb-version }}
-
       - name: Create Kind cluster (K8s ${{ matrix.k8s-version }})
         run: ./scripts/setup-kind-clusters.sh "${{ matrix.kind-node-image }}"
 
-      - name: Deploy
+      - name: Build and deploy
         run: make deploy MARIADB_VERSION=${{ matrix.mariadb-version }}
 
       - name: Run e2e tests
