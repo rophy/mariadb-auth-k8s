@@ -38,3 +38,13 @@ setup() {
     [[ "$output" == *"Access denied"* ]]
 }
 
+@test "user1 authenticates with database name specified" {
+    run kexec_user1 "SA_TOKEN=\$(cat /var/run/secrets/kubernetes.io/serviceaccount/token) && mysql -h $MARIADB_HOST -u '$NAMESPACE/user1' -p\"\$SA_TOKEN\" -D mysql -e 'SELECT 1'"
+    [[ "$status" -eq 0 ]]
+}
+
+@test "user1 authenticates with database name and default-auth cleartext (MDEV-38431)" {
+    run kexec_user1 "SA_TOKEN=\$(cat /var/run/secrets/kubernetes.io/serviceaccount/token) && mysql -h $MARIADB_HOST -u '$NAMESPACE/user1' -p\"\$SA_TOKEN\" --default-auth=mysql_clear_password -D mysql -e 'SELECT 1'"
+    [[ "$status" -eq 0 ]]
+}
+

@@ -2,7 +2,7 @@ FROM debian:bookworm AS builder
 
 # Build arguments
 ARG VERSION=dev
-ARG MARIADB_VERSION=10.6.22
+ARG MARIADB_VERSION=10.6.27
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive

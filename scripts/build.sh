@@ -5,7 +5,7 @@ set -e
 # Usage: ./scripts/build.sh [version] [mariadb_version]
 #
 # If no version provided, derives from git describe.
-# mariadb_version defaults to 10.6.22.
+# mariadb_version defaults to 10.6.27.
 
 cd "$(dirname "$0")/.."
 
@@ -16,7 +16,7 @@ else
     VERSION=$(git describe --tags --always 2>/dev/null || echo "0.0")
 fi
 
-MARIADB_VERSION="${2:-10.6.22}"
+MARIADB_VERSION="${2:-10.6.27}"
 
 echo "Building MariaDB K8s Auth Plugin v${VERSION} (MariaDB ${MARIADB_VERSION})..."
 

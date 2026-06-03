@@ -4,7 +4,7 @@
 .DEFAULT_GOAL := help
 
 # MariaDB version for headers
-MARIADB_VERSION := 10.6.22
+MARIADB_VERSION := 10.6.27
 
 # Download and package MariaDB server headers
 init:
@@ -107,7 +107,7 @@ help:
 	@echo "  make deploy && make e2e-test"
 	@echo ""
 	@echo "Multi-version build:"
-	@echo "  make init MARIADB_VERSION=10.6.22"
-	@echo "  make build MARIADB_VERSION=10.6.22"
-	@echo "  make unit-test MARIADB_VERSION=10.6.22"
+	@echo "  make init MARIADB_VERSION=10.6.27"
+	@echo "  make build MARIADB_VERSION=10.6.27"
+	@echo "  make unit-test MARIADB_VERSION=10.6.27"
 	@echo "  (default: MARIADB_VERSION=$(MARIADB_VERSION))"

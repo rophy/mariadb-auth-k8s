@@ -79,12 +79,12 @@ make destroy
 Build against a specific MariaDB version by passing `MARIADB_VERSION`:
 
 ```bash
-make init MARIADB_VERSION=11.4.5
-make build MARIADB_VERSION=11.4.5
-make unit-test MARIADB_VERSION=11.4.5
+make init MARIADB_VERSION=11.4.12
+make build MARIADB_VERSION=11.4.12
+make unit-test MARIADB_VERSION=11.4.12
 ```
 
-Default is `10.6.22`. Supported versions: `10.6.22`, `10.11.10`, `11.4.5`.
+Default is `10.6.27`. Supported versions: `10.6.27`, `10.11.18`, `11.4.12`.
 
 ## Makefile Commands
 
@@ -105,7 +105,7 @@ make deploy         # Build + deploy everything
 make destroy        # Destroy cluster
 ```
 
-All build/test targets accept `MARIADB_VERSION=<version>` (default: `10.6.22`).
+All build/test targets accept `MARIADB_VERSION=<version>` (default: `10.6.27`).
 
 ## Configuration
 
