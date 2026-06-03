@@ -3,11 +3,7 @@
 load test_helper
 
 SCRIPTS_DIR="/opt/test-scripts"
-
-# Resolve java classpath — old image uses apt's jar, new image uses downloaded jar
-_java_cp() {
-    echo "'$SCRIPTS_DIR:$SCRIPTS_DIR/mariadb-java-client.jar:/usr/share/java/mariadb-java-client.jar'"
-}
+TLS_CA_PATH="/etc/mysql/tls/ca.pem"
 
 # Build the SDK command suffix
 _sdk_cmd() {
@@ -16,7 +12,8 @@ _sdk_cmd() {
         pymysql) echo "python3 $SCRIPTS_DIR/pymysql_test.py" ;;
         go)      echo "$SCRIPTS_DIR/go_mysql_test" ;;
         node)    echo "cd $SCRIPTS_DIR && node node_mysql_test.js" ;;
-        java)    echo "java -cp $(_java_cp) MariaDBTest" ;;
+        java)    echo "java -cp '$SCRIPTS_DIR:$SCRIPTS_DIR/mariadb-java-client.jar:/usr/share/java/mariadb-java-client.jar' MariaDBTest" ;;
+        java3)   echo "java -cp '$SCRIPTS_DIR:$SCRIPTS_DIR/mariadb-java-client-3.jar' MariaDBTest" ;;
         *) echo "echo 'Unknown SDK: $sdk'; false"; return 1 ;;
     esac
 }
@@ -35,7 +32,7 @@ _exec_pod() {
 }
 
 # Run an SDK test script in a test pod with the pod's SA token
-# Usage: sdk_query <sdk> <pod: user1|user2|user1-old|user2-old> <mysql_user> <query> [database]
+# Usage: sdk_query <sdk> <pod> <mysql_user> <query> [database]
 sdk_query() {
     local sdk="$1"
     local pod="$2"
@@ -52,7 +49,7 @@ sdk_query() {
 }
 
 # Run an SDK test script with an explicit token (for negative tests)
-# Usage: sdk_with_token <sdk> <pod: user1|user2|user1-old|user2-old> <mysql_user> <token> <query>
+# Usage: sdk_with_token <sdk> <pod> <mysql_user> <token> <query>
 sdk_with_token() {
     local sdk="$1"
     local pod="$2"
@@ -61,6 +58,31 @@ sdk_with_token() {
     local query="$5"
 
     local cmd="export DB_HOST=$MARIADB_HOST DB_USER='$mysql_user' DB_PASSWORD='$token' DB_QUERY='$query'"
+    cmd+=" && $(_sdk_cmd "$sdk")"
+
+    _exec_pod "$pod" "$cmd"
+}
+
+# Run an SDK test script with TLS enabled
+# Usage: sdk_query_tls <sdk> <pod> <mysql_user> <query> [database]
+sdk_query_tls() {
+    local sdk="$1"
+    local pod="$2"
+    local mysql_user="$3"
+    local query="$4"
+    local database="${5:-}"
+
+    local cmd="export DB_HOST=$MARIADB_HOST DB_USER='$mysql_user' DB_QUERY='$query'"
+    cmd+=" && export DB_PASSWORD=\$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
+    cmd+=" && export DB_TLS_CA=$TLS_CA_PATH"
+    [[ -n "$database" ]] && cmd+=" && export DB_DATABASE='$database'"
+
+    # Java SDKs use DB_JDBC_PARAMS instead of DB_TLS_CA
+    case "$sdk" in
+        java)  cmd+=" && export DB_JDBC_PARAMS='useSsl=true&serverSslCert=$TLS_CA_PATH'" ;;
+        java3) cmd+=" && export DB_JDBC_PARAMS='sslMode=verify-ca&serverSslCert=$TLS_CA_PATH'" ;;
+    esac
+
     cmd+=" && $(_sdk_cmd "$sdk")"
 
     _exec_pod "$pod" "$cmd"

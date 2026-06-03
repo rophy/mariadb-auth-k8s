@@ -28,9 +28,11 @@ RUN cd /opt/test-scripts && npm install --production
 # Go binary from builder stage
 COPY --from=go-builder /go_mysql_test /opt/test-scripts/go_mysql_test
 
-# Java: download Connector/J 2.7.13 (latest 2.x — 3.x hardcodes requireSsl for mysql_clear_password)
+# Java: Connector/J 2.7.13 (default, non-TLS) and 3.5.2 (TLS-only)
 RUN curl -L -o /opt/test-scripts/mariadb-java-client.jar \
-    https://repo1.maven.org/maven2/org/mariadb/jdbc/mariadb-java-client/2.7.13/mariadb-java-client-2.7.13.jar
+    https://repo1.maven.org/maven2/org/mariadb/jdbc/mariadb-java-client/2.7.13/mariadb-java-client-2.7.13.jar && \
+    curl -L -o /opt/test-scripts/mariadb-java-client-3.jar \
+    https://repo1.maven.org/maven2/org/mariadb/jdbc/mariadb-java-client/3.5.2/mariadb-java-client-3.5.2.jar
 ENV DB_JDBC_PARAMS="useSsl=false"
 COPY test/e2e/scripts/MariaDBTest.java /opt/test-scripts/
 RUN javac -cp "/opt/test-scripts/mariadb-java-client.jar" /opt/test-scripts/MariaDBTest.java

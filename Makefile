@@ -37,7 +37,10 @@ deploy: build
 	@echo "Step 1: Ensuring kind cluster exists..."
 	@./scripts/setup-kind-clusters.sh
 	@echo ""
-	@echo "Step 2: Deploying with skaffold..."
+	@echo "Step 2: Generating TLS certificates..."
+	@./scripts/generate-tls-certs.sh
+	@echo ""
+	@echo "Step 3: Deploying with skaffold..."
 	@skaffold run
 	@echo ""
 	@echo "Deployment complete!"

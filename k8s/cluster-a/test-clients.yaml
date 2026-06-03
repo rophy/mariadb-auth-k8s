@@ -12,7 +12,7 @@ metadata:
   name: user2
   namespace: mariadb-auth-test
 ---
-# Test client deployments
+# Test client deployments (new SDK versions)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -40,13 +40,22 @@ spec:
         - name: token
           mountPath: /var/run/secrets/kubernetes.io/serviceaccount
           readOnly: true
+        - name: tls-ca
+          mountPath: /etc/mysql/tls
+          readOnly: true
       volumes:
       - name: token
         projected:
           sources:
           - serviceAccountToken:
               path: token
-              expirationSeconds: 3600  # 1 hour token
+              expirationSeconds: 3600
+      - name: tls-ca
+        secret:
+          secretName: mariadb-tls
+          items:
+          - key: ca.pem
+            path: ca.pem
 ---
 # Old SDK client deployments (same service accounts, old client image)
 apiVersion: apps/v1
@@ -76,6 +85,9 @@ spec:
         - name: token
           mountPath: /var/run/secrets/kubernetes.io/serviceaccount
           readOnly: true
+        - name: tls-ca
+          mountPath: /etc/mysql/tls
+          readOnly: true
       volumes:
       - name: token
         projected:
@@ -83,6 +95,12 @@ spec:
           - serviceAccountToken:
               path: token
               expirationSeconds: 3600
+      - name: tls-ca
+        secret:
+          secretName: mariadb-tls
+          items:
+          - key: ca.pem
+            path: ca.pem
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -111,6 +129,9 @@ spec:
         - name: token
           mountPath: /var/run/secrets/kubernetes.io/serviceaccount
           readOnly: true
+        - name: tls-ca
+          mountPath: /etc/mysql/tls
+          readOnly: true
       volumes:
       - name: token
         projected:
@@ -118,6 +139,12 @@ spec:
           - serviceAccountToken:
               path: token
               expirationSeconds: 3600
+      - name: tls-ca
+        secret:
+          secretName: mariadb-tls
+          items:
+          - key: ca.pem
+            path: ca.pem
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -146,10 +173,19 @@ spec:
         - name: token
           mountPath: /var/run/secrets/kubernetes.io/serviceaccount
           readOnly: true
+        - name: tls-ca
+          mountPath: /etc/mysql/tls
+          readOnly: true
       volumes:
       - name: token
         projected:
           sources:
           - serviceAccountToken:
               path: token
-              expirationSeconds: 3600  # 1 hour token
+              expirationSeconds: 3600
+      - name: tls-ca
+        secret:
+          secretName: mariadb-tls
+          items:
+          - key: ca.pem
+            path: ca.pem

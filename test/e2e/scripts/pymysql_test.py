@@ -8,6 +8,11 @@ user = os.environ["DB_USER"]
 password = os.environ["DB_PASSWORD"]
 database = os.environ.get("DB_DATABASE")
 query = os.environ.get("DB_QUERY", "SELECT 1")
+tls_ca = os.environ.get("DB_TLS_CA")
+
+ssl_opts = None
+if tls_ca:
+    ssl_opts = {"ca": tls_ca}
 
 try:
     conn = pymysql.connect(
@@ -16,6 +21,7 @@ try:
         user=user,
         password=password,
         database=database,
+        ssl=ssl_opts,
     )
     cursor = conn.cursor()
     cursor.execute(query)

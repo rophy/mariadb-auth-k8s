@@ -1,12 +1,14 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"fmt"
 	"os"
 	"strings"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
 )
 
 func envOrDefault(key, def string) string {
@@ -22,9 +24,23 @@ func main() {
 	password := os.Getenv("DB_PASSWORD")
 	database := envOrDefault("DB_DATABASE", "")
 	query := envOrDefault("DB_QUERY", "SELECT 1")
+	tlsCa := os.Getenv("DB_TLS_CA")
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:3306)/%s?allowCleartextPasswords=true",
-		user, password, host, database)
+	tlsParam := ""
+	if tlsCa != "" {
+		rootCertPool := x509.NewCertPool()
+		pem, err := os.ReadFile(tlsCa)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to read CA: %v\n", err)
+			os.Exit(1)
+		}
+		rootCertPool.AppendCertsFromPEM(pem)
+		mysql.RegisterTLSConfig("custom", &tls.Config{RootCAs: rootCertPool})
+		tlsParam = "&tls=custom"
+	}
+
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:3306)/%s?allowCleartextPasswords=true%s",
+		user, password, host, database, tlsParam)
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {

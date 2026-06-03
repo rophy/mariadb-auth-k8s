@@ -42,6 +42,9 @@ spec:
           mountPath: /etc/mysql/mariadb.conf.d/60-auth-k8s.cnf
           subPath: auth_k8s.cnf
           readOnly: true
+        - name: tls-certs
+          mountPath: /etc/mysql/tls
+          readOnly: true
         livenessProbe:
           exec:
             command:
@@ -69,6 +72,10 @@ spec:
       - name: auth-k8s-config
         configMap:
           name: auth-k8s-config
+      - name: tls-certs
+        secret:
+          secretName: mariadb-tls
+          defaultMode: 0444
 ---
 # Plugin configuration: point auth_k8s to the tokenreviewer SA credentials
 apiVersion: v1
@@ -82,6 +89,8 @@ data:
     plugin_load_add = auth_k8s
     auth_k8s_token_path = /var/run/secrets/tokenreviewer/token
     auth_k8s_ca_path = /var/run/secrets/tokenreviewer/ca.crt
+    ssl_cert = /etc/mysql/tls/server-cert.pem
+    ssl_key = /etc/mysql/tls/server-key.pem
 ---
 # Internal ClusterIP service for in-cluster access
 apiVersion: v1
