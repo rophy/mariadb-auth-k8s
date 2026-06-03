@@ -44,7 +44,53 @@ MariaDB username format: `namespace/serviceaccount`
 | `default/myapp` | ServiceAccount "myapp" in namespace "default" |
 | `production/api-server` | ServiceAccount "api-server" in namespace "production" |
 
-## Quick Start
+## Installation
+
+### From Release Tarball
+
+Download from [Releases](https://github.com/rophy/mariadb-auth-k8s/releases):
+
+```bash
+tar xzf mariadb-auth-k8s-0.1.tar.gz
+cd mariadb-auth-k8s-0.1
+```
+
+Build dependencies: `build-essential`, `cmake`, `libmariadb-dev`, `libcurl4-openssl-dev`, `libjson-c-dev`
+
+```bash
+# Debian/Ubuntu
+apt install build-essential cmake libmariadb-dev libcurl4-openssl-dev libjson-c-dev
+
+# Build and install
+mkdir build && cd build
+cmake ..
+make
+sudo make install
+```
+
+The plugin installs to your MariaDB plugin directory (auto-detected via `mysql_config --plugindir`).
+
+### Enable the Plugin
+
+Add to your MariaDB config (`/etc/mysql/mariadb.conf.d/auth_k8s.cnf`):
+
+```ini
+[mysqld]
+plugin_load_add = auth_k8s
+```
+
+### Plugin Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `auth_k8s_api_url` | `https://kubernetes.default.svc` | Kubernetes API server URL |
+| `auth_k8s_token_path` | `/var/run/secrets/kubernetes.io/serviceaccount/token` | Path to ServiceAccount token for TokenReview calls |
+| `auth_k8s_ca_path` | `/var/run/secrets/kubernetes.io/serviceaccount/ca.crt` | Path to Kubernetes CA certificate |
+| `auth_k8s_timeout` | `10` | HTTP timeout in seconds |
+
+All variables are read-only (set via config file or command line only).
+
+## Development
 
 ### Prerequisites
 
@@ -52,31 +98,22 @@ MariaDB username format: `namespace/serviceaccount`
 - kind (Kubernetes in Docker)
 - kubectl
 - skaffold
-- bats (for e2e tests — install via `make install-bats`)
+- helm
+- bats (install via `make install-bats`)
 
-### Local Testing
+### Quick Start
 
 ```bash
-# Download headers and build plugin
-make init
-make build
+make deploy && make e2e-test
+```
 
-# Run unit tests (no cluster needed)
-make unit-test
+### Available Targets
 
-# Deploy everything (builds plugin, creates cluster, deploys)
-make deploy
-
-# Run e2e tests (requires deployed cluster)
-make e2e-test
-
-# Clean up
-make destroy
+```
+make help
 ```
 
 ### Multi-Version Builds
-
-Build against a specific MariaDB version by passing `MARIADB_VERSION`:
 
 ```bash
 make init MARIADB_VERSION=11.4.12
@@ -84,28 +121,7 @@ make build MARIADB_VERSION=11.4.12
 make unit-test MARIADB_VERSION=11.4.12
 ```
 
-Default is `10.6.27`. Supported versions: `10.6.27`, `10.11.18`, `11.4.12`.
-
-## Makefile Commands
-
-```bash
-# Build
-make init           # Download MariaDB server headers
-make build          # Build auth_k8s plugin
-make clean          # Clean build artifacts
-
-# Test
-make unit-test      # Run unit tests (no cluster needed)
-make e2e-test       # Run e2e tests with BATS (needs deployed cluster)
-make install-bats   # Install BATS test framework
-
-# Development environment
-make kind           # Create kind cluster
-make deploy         # Build + deploy everything
-make destroy        # Destroy cluster
-```
-
-All build/test targets accept `MARIADB_VERSION=<version>` (default: `10.6.27`).
+Supported versions: `10.6.27`, `10.11.18`, `11.4.12` (default: `10.6.27`).
 
 ## Configuration
 
@@ -134,25 +150,21 @@ mysql -h mariadb -u 'namespace/serviceaccount' -p"$TOKEN"
 ## Project Structure
 
 ```
-src/
-  auth_k8s.c                      # Main plugin source
-  tokenreview_api.c/h              # TokenReview API client
-
+src/                                # Plugin source (C)
+helm/mariadb-auth-k8s/              # Helm chart for MariaDB deployment
 test/
-  unit/                            # CMocka unit tests
-  e2e/                             # BATS e2e tests
-
-k8s/
-  cluster-a/                       # Kubernetes manifests
-
-scripts/
-  download-headers.sh              # Download MariaDB headers
-  build.sh                         # Build plugin via Docker
-  setup-kind-clusters.sh           # Create Kind cluster
-
+  unit/                             # CMocka unit tests
+  e2e/                              # BATS e2e tests
+k8s/cluster-a/                      # Kubernetes manifests for test environment
+scripts/                            # Build, deploy, and test scripts
 .github/workflows/
-  ci.yml                           # CI pipeline (matrix: 10.6, 10.11, 11.4)
+  ci.yml                            # CI pipeline (MariaDB 10.6, 10.11, 11.4)
+  release.yml                       # Source tarball release on tag push
 ```
+
+## Client SDK Compatibility
+
+The plugin uses `mysql_clear_password` via auth switch. Most SDKs work out of the box; some need configuration. See [SDK Compatibility](docs/sdk_compatibility.md) for tested versions and code examples.
 
 ## Security Considerations
 
