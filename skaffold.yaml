@@ -36,6 +36,4 @@ manifests:
   rawYaml:
   - k8s/cluster-a/namespace.yaml
   - k8s/cluster-a/rbac.yaml
-  - k8s/cluster-a/mariadb-nodeport.yaml
-  - k8s/cluster-a/mariadb-custom-config.yaml
   - k8s/cluster-a/test-clients.yaml

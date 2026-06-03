@@ -40,8 +40,11 @@ deploy: build
 	@echo "Step 2: Generating TLS certificates..."
 	@./scripts/generate-tls-certs.sh
 	@echo ""
-	@echo "Step 3: Deploying with skaffold..."
-	@skaffold run
+	@echo "Step 3: Building images with skaffold..."
+	@skaffold build --file-output=/tmp/skaffold-build.json
+	@echo ""
+	@echo "Step 4: Loading images into Kind and deploying resources..."
+	@./scripts/deploy-to-kind.sh
 	@echo ""
 	@echo "Deployment complete!"
 	@echo ""

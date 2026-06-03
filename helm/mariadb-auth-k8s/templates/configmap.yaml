@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+data:
+  auth_k8s.cnf: |
+    [mysqld]
+    plugin_load_add = auth_k8s
+    {{- if .Values.auth_k8s.api_url }}
+    auth_k8s_api_url = {{ .Values.auth_k8s.api_url }}
+    {{- end }}
+    auth_k8s_token_path = {{ .Values.auth_k8s.token_path }}
+    auth_k8s_ca_path = {{ .Values.auth_k8s.ca_path }}
+    auth_k8s_timeout = {{ .Values.auth_k8s.timeout }}
+    {{- if .Values.tls.enabled }}
+    ssl_cert = /etc/mysql/tls/server-cert.pem
+    ssl_key = /etc/mysql/tls/server-key.pem
+    {{- end }}

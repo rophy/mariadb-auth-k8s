@@ -1,0 +1,5 @@
+apiVersion: v2
+name: mariadb-auth-k8s
+description: MariaDB with auth_k8s plugin for Kubernetes ServiceAccount authentication
+version: 0.1.0
+type: application

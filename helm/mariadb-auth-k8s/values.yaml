@@ -1,0 +1,23 @@
+image:
+  repository: mariadb-server
+  tag: latest
+  pullPolicy: IfNotPresent
+
+serviceAccount: mariadb
+
+auth_k8s:
+  api_url: ""
+  ca_path: /var/run/secrets/tokenreviewer/ca.crt
+  token_path: /var/run/secrets/tokenreviewer/token
+  timeout: 10
+
+tokenreviewer:
+  secretName: tokenreviewer-token
+
+tls:
+  enabled: false
+  secretName: mariadb-tls
+
+service:
+  type: ClusterIP
+  nodePort:

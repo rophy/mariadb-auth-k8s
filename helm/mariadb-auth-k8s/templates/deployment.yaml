@@ -1,30 +1,26 @@
----
-# MariaDB deployment with HostPort for cross-cluster access
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mariadb
-  namespace: mariadb-auth-test
+  name: {{ .Release.Name }}
   labels:
-    app: mariadb
+    app: {{ .Release.Name }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mariadb
+      app: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: mariadb
+        app: {{ .Release.Name }}
     spec:
-      serviceAccountName: mariadb
+      serviceAccountName: {{ .Values.serviceAccount }}
       containers:
       - name: mariadb
-        image: mariadb-server:latest
-        imagePullPolicy: IfNotPresent
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
         - containerPort: 3306
-          name: mysql
         env:
         - name: MYSQL_ROOT_PASSWORD
           value: ""
@@ -42,9 +38,11 @@ spec:
           mountPath: /etc/mysql/mariadb.conf.d/60-auth-k8s.cnf
           subPath: auth_k8s.cnf
           readOnly: true
+        {{- if .Values.tls.enabled }}
         - name: tls-certs
           mountPath: /etc/mysql/tls
           readOnly: true
+        {{- end }}
         livenessProbe:
           exec:
             command:
@@ -68,62 +66,13 @@ spec:
         emptyDir: {}
       - name: tokenreviewer-token
         secret:
-          secretName: tokenreviewer-token
+          secretName: {{ .Values.tokenreviewer.secretName }}
       - name: auth-k8s-config
         configMap:
-          name: auth-k8s-config
+          name: {{ .Release.Name }}-config
+      {{- if .Values.tls.enabled }}
       - name: tls-certs
         secret:
-          secretName: mariadb-tls
+          secretName: {{ .Values.tls.secretName }}
           defaultMode: 0444
----
-# Plugin configuration: point auth_k8s to the tokenreviewer SA credentials
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: auth-k8s-config
-  namespace: mariadb-auth-test
-data:
-  auth_k8s.cnf: |
-    [mysqld]
-    plugin_load_add = auth_k8s
-    auth_k8s_token_path = /var/run/secrets/tokenreviewer/token
-    auth_k8s_ca_path = /var/run/secrets/tokenreviewer/ca.crt
-    ssl_cert = /etc/mysql/tls/server-cert.pem
-    ssl_key = /etc/mysql/tls/server-key.pem
----
-# Internal ClusterIP service for in-cluster access
-apiVersion: v1
-kind: Service
-metadata:
-  name: mariadb
-  namespace: mariadb-auth-test
-  labels:
-    app: mariadb
-spec:
-  type: ClusterIP
-  selector:
-    app: mariadb
-  ports:
-  - port: 3306
-    targetPort: 3306
-    name: mysql
----
-# NodePort service for cross-cluster access via Docker network
-apiVersion: v1
-kind: Service
-metadata:
-  name: mariadb-nodeport
-  namespace: mariadb-auth-test
-  labels:
-    app: mariadb
-    service: nodeport
-spec:
-  type: NodePort
-  selector:
-    app: mariadb
-  ports:
-  - port: 3306
-    targetPort: 3306
-    nodePort: 30306
-    name: mysql
+      {{- end }}

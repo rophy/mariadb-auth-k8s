@@ -78,23 +78,56 @@ mysql_query_host() {
     kexec_user1 "SA_TOKEN=\$(cat /var/run/secrets/kubernetes.io/serviceaccount/token) && mysql -h $host -u '$mysql_user' -p\"\$SA_TOKEN\" -e '$query'"
 }
 
-# Wait for a specific MariaDB deployment to be ready
-wait_for_mariadb_deployment() {
-    local deployment="$1"
-    local service="$2"
-    local attempts=30
+# Wait for a specific MariaDB service to be reachable
+wait_for_mariadb_host() {
+    local host="$1"
+    local attempts="${2:-60}"
     local i=0
-    echo "# Waiting for $deployment to be ready..." >&3
-    while (( i < attempts )); do
-        if kexec_user1 "mysqladmin -h $service ping" &>/dev/null; then
-            echo "# $deployment is ready" >&3
+    echo "# Waiting for $host to be ready (${attempts}s timeout)..." >&3
+    while [[ $i -lt $attempts ]]; do
+        if kubectl --context "$KUBE_CONTEXT" -n "$NAMESPACE" \
+            exec deployment/client-user1 -- mysqladmin -h "$host" ping &>/dev/null; then
+            echo "# $host is ready (after ${i}s)" >&3
             return 0
         fi
         sleep 1
-        (( i++ ))
+        i=$((i + 1))
     done
-    echo "# $deployment did not become ready within ${attempts}s" >&3
+    echo "# $host did not become ready within ${attempts}s" >&3
     return 1
+}
+
+# Helm chart path (relative to repo root)
+HELM_CHART_DIR="${BATS_TEST_DIRNAME}/../../helm/mariadb-auth-k8s"
+
+# Resolve the mariadb-server image tag from the running deployment
+_mariadb_image() {
+    ka get deployment/mariadb -o jsonpath='{.spec.template.spec.containers[0].image}'
+}
+
+# Install a MariaDB instance via Helm chart
+# Usage: helm_install <release-name> [--set key=val ...]
+helm_install() {
+    local release="$1"; shift
+    local image
+    image=$(_mariadb_image)
+    echo "# helm install $release (image=$image) ..." >&3
+    helm install "$release" "$HELM_CHART_DIR" \
+        --namespace "$NAMESPACE" \
+        --kube-context "$KUBE_CONTEXT" \
+        --set "image.repository=${image%%:*}" \
+        --set "image.tag=${image#*:}" \
+        "$@" 2>&3
+    wait_for_mariadb_host "$release"
+}
+
+# Uninstall a Helm release
+helm_uninstall() {
+    local release="$1"
+    echo "# helm uninstall $release ..." >&3
+    helm uninstall "$release" \
+        --namespace "$NAMESPACE" \
+        --kube-context "$KUBE_CONTEXT" 2>&3 || true
 }
 
 # Wait for MariaDB to be ready (30s timeout)
