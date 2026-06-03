@@ -9,24 +9,50 @@ setup() {
     load sdk_helper
 }
 
-@test "go: user1 authenticates with valid token" {
+# --- NEW SDK (go-sql-driver latest) ---
+
+@test "go-new: user1 authenticates with valid token" {
     run sdk_query go user1 "$NAMESPACE/user1" "SELECT 1"
     [[ "$status" -eq 0 ]]
 }
 
-@test "go: SELECT USER() returns correct identity" {
+@test "go-new: SELECT USER() returns correct identity" {
     run sdk_query go user1 "$NAMESPACE/user1" "SELECT USER()"
     [[ "$status" -eq 0 ]]
     [[ "$output" == *"mariadb-auth-test/user1"* ]]
 }
 
-@test "go: auth with database name specified" {
+@test "go-new: auth with database name specified" {
     run sdk_query go user1 "$NAMESPACE/user1" "SELECT 1" "testdb"
     [[ "$status" -eq 0 ]]
 }
 
-@test "go: invalid token is rejected" {
+@test "go-new: invalid token is rejected" {
     run sdk_with_token go user1 "$NAMESPACE/user1" "invalid-token" "SELECT 1"
+    [[ "$status" -ne 0 ]]
+    [[ "$output" == *"Access denied"* ]]
+}
+
+# --- OLD SDK (go-sql-driver 1.5.0) ---
+
+@test "go-old: user1 authenticates with valid token" {
+    run sdk_query go user1-old "$NAMESPACE/user1" "SELECT 1"
+    [[ "$status" -eq 0 ]]
+}
+
+@test "go-old: SELECT USER() returns correct identity" {
+    run sdk_query go user1-old "$NAMESPACE/user1" "SELECT USER()"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"mariadb-auth-test/user1"* ]]
+}
+
+@test "go-old: auth with database name specified" {
+    run sdk_query go user1-old "$NAMESPACE/user1" "SELECT 1" "testdb"
+    [[ "$status" -eq 0 ]]
+}
+
+@test "go-old: invalid token is rejected" {
+    run sdk_with_token go user1-old "$NAMESPACE/user1" "invalid-token" "SELECT 1"
     [[ "$status" -ne 0 ]]
     [[ "$output" == *"Access denied"* ]]
 }

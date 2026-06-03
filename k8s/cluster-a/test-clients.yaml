@@ -48,6 +48,77 @@ spec:
               path: token
               expirationSeconds: 3600  # 1 hour token
 ---
+# Old SDK client deployments (same service accounts, old client image)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client-user1-old
+  namespace: mariadb-auth-test
+  labels:
+    app: client-user1-old
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client-user1-old
+  template:
+    metadata:
+      labels:
+        app: client-user1-old
+    spec:
+      serviceAccountName: user1
+      containers:
+      - name: client
+        image: test-client-old:latest
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/bash", "-c", "sleep infinity"]
+        volumeMounts:
+        - name: token
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          readOnly: true
+      volumes:
+      - name: token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: token
+              expirationSeconds: 3600
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client-user2-old
+  namespace: mariadb-auth-test
+  labels:
+    app: client-user2-old
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client-user2-old
+  template:
+    metadata:
+      labels:
+        app: client-user2-old
+    spec:
+      serviceAccountName: user2
+      containers:
+      - name: client
+        image: test-client-old:latest
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/bash", "-c", "sleep infinity"]
+        volumeMounts:
+        - name: token
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          readOnly: true
+      volumes:
+      - name: token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: token
+              expirationSeconds: 3600
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:

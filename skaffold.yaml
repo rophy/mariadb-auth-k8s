@@ -21,6 +21,11 @@ build:
       dockerfile: Dockerfile.client
       buildArgs:
         BUILDKIT_INLINE_CACHE: "1"
+  - image: test-client-old
+    docker:
+      dockerfile: Dockerfile.client-old
+      buildArgs:
+        BUILDKIT_INLINE_CACHE: "1"
 
 # Deploy configuration
 deploy:

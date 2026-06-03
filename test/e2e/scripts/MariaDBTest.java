@@ -8,7 +8,8 @@ public class MariaDBTest {
         String database = System.getenv().getOrDefault("DB_DATABASE", "");
         String query = System.getenv().getOrDefault("DB_QUERY", "SELECT 1");
 
-        String url = "jdbc:mariadb://" + host + ":3306/" + database + "?useSsl=false";
+        String jdbcParams = System.getenv().getOrDefault("DB_JDBC_PARAMS", "useSsl=false");
+        String url = "jdbc:mariadb://" + host + ":3306/" + database + "?" + jdbcParams;
 
         try (Connection conn = DriverManager.getConnection(url, user, password);
              Statement stmt = conn.createStatement();
