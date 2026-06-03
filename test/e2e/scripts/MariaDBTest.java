@@ -8,7 +8,7 @@ public class MariaDBTest {
         String database = System.getenv().getOrDefault("DB_DATABASE", "");
         String query = System.getenv().getOrDefault("DB_QUERY", "SELECT 1");
 
-        String url = "jdbc:mariadb://" + host + ":3306/" + database;
+        String url = "jdbc:mariadb://" + host + ":3306/" + database + "?useSsl=false";
 
         try (Connection conn = DriverManager.getConnection(url, user, password);
              Statement stmt = conn.createStatement();

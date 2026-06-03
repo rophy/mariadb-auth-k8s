@@ -1,5 +1,5 @@
 # Stage 1: Build Go test binary
-FROM golang:1.22-bookworm AS go-builder
+FROM golang:1.24-bookworm AS go-builder
 COPY test/e2e/scripts/go_mysql_test.go /build/main.go
 WORKDIR /build
 RUN go mod init mysql-test && \
@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     python3 python3-pip \
     nodejs npm \
-    default-jre-headless libmariadb-java \
+    default-jdk-headless libmariadb-java \
     && rm -rf /var/lib/apt/lists/*
 
 # Python dependencies
