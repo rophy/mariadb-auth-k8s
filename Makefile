@@ -1,39 +1,25 @@
-.PHONY: init build clean kind deploy e2e-test unit-test test-legacy install-bats destroy help
+.PHONY: init build clean kind deploy e2e-test unit-test test-legacy install-bats destroy release help
 
-# Default target
 .DEFAULT_GOAL := help
 
-# MariaDB version for headers and runtime
 MARIADB_VERSION := 10.6.27
 export MARIADB_VERSION
 
-# Download and package MariaDB server headers
-init:
+init: ## Download MariaDB server headers
 	@./scripts/download-headers.sh $(MARIADB_VERSION)
 
-# Build the auth_k8s plugin
-build:
+build: ## Build auth_k8s plugin
 	@./scripts/build.sh "" $(MARIADB_VERSION)
 
-# Clean build artifacts
-clean:
+clean: ## Clean build artifacts
 	@echo "Cleaning build artifacts..."
 	rm -rf build/
 	@echo "Clean complete"
 
-# Create kind cluster for testing
-kind:
-	@echo "=========================================="
-	@echo "Setting up Kind Cluster"
-	@echo "=========================================="
+kind: ## Create Kind cluster (cluster-a)
 	@./scripts/setup-kind-clusters.sh
 
-# Deploy to kind cluster
-deploy: build
-	@echo "=========================================="
-	@echo "Deploying to Kind Cluster"
-	@echo "=========================================="
-	@echo ""
+deploy: build ## Build plugin, setup cluster, deploy everything
 	@echo "Step 1: Ensuring kind cluster exists..."
 	@./scripts/setup-kind-clusters.sh
 	@echo ""
@@ -46,28 +32,18 @@ deploy: build
 	@echo "Step 4: Loading images into Kind and deploying resources..."
 	@./scripts/deploy-to-kind.sh
 	@echo ""
-	@echo "Deployment complete!"
-	@echo ""
-	@echo "Next: Run 'make e2e-test' to verify authentication"
+	@echo "Deployment complete! Run 'make e2e-test' to verify."
 
-# Run unit tests (no cluster needed)
-unit-test:
+unit-test: ## Run unit tests (no cluster needed)
 	@docker build --build-arg MARIADB_VERSION=$(MARIADB_VERSION) --target test -t mariadb-auth-k8s:test .
 
-# Run E2E authentication tests (BATS, needs deployed cluster)
-e2e-test:
+e2e-test: ## Run E2E authentication tests (needs deployed cluster)
 	@bats test/e2e/
 
-# Run legacy authentication tests
-test-legacy:
-	@echo "=========================================="
-	@echo "Running Authentication Tests (legacy)"
-	@echo "=========================================="
+test-legacy: ## Run legacy test script
 	@./scripts/test.sh
 
-# Install BATS test framework
-install-bats:
-	@echo "Installing bats-core..."
+install-bats: ## Install BATS test framework
 	@command -v bats >/dev/null 2>&1 && echo "bats is already installed" || { \
 		git clone https://github.com/bats-core/bats-core.git /tmp/bats-core && \
 		cd /tmp/bats-core && sudo ./install.sh /usr/local && \
@@ -75,46 +51,31 @@ install-bats:
 		echo "bats installed successfully"; \
 	}
 
-# Destroy kind cluster and all deployments
-destroy:
-	@echo "=========================================="
-	@echo "Destroying Kind Cluster"
-	@echo "=========================================="
-	@echo ""
-	@echo "Deleting kind cluster..."
-	@kind delete cluster --name cluster-a 2>/dev/null || echo "Cluster-a already deleted"
-	@echo ""
-	@echo "Destroy complete!"
+release: ## Build source release tarball (VERSION=1.0)
+	@if [ -z "$(VERSION)" ]; then \
+		VERSION=$$(git describe --tags --always 2>/dev/null || echo "0.0"); \
+	else \
+		VERSION="$(VERSION)"; \
+	fi; \
+	PREFIX="mariadb-auth-k8s-$$VERSION"; \
+	echo "Building release tarball: $$PREFIX.tar.gz"; \
+	./include/generate-version.sh "$$VERSION" src/version.h; \
+	mkdir -p dist; \
+	tar czf "dist/$$PREFIX.tar.gz" \
+		--transform "s,^,$$PREFIX/," \
+		src/ \
+		CMakeLists.txt \
+		LICENSE \
+		README.md; \
+	echo "Release tarball: dist/$$PREFIX.tar.gz"
 
-# Show help
-help:
-	@echo "MariaDB K8s Auth Plugin"
+destroy: ## Destroy Kind cluster and all deployments
+	@kind delete cluster --name cluster-a 2>/dev/null || echo "Cluster-a already deleted"
+
+help: ## Show this help
+	@echo "MariaDB K8s Auth Plugin (MARIADB_VERSION=$(MARIADB_VERSION))"
 	@echo ""
-	@echo "Build targets:"
-	@echo "  make init    - Download and package MariaDB server headers"
-	@echo "  make build   - Build auth_k8s plugin"
-	@echo "  make clean   - Clean build artifacts"
+	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | awk -F '\t' '{printf "  make %-14s %s\n", $$1, $$2}'
 	@echo ""
-	@echo "Development environment:"
-	@echo "  make kind    - Create kind cluster (cluster-a)"
-	@echo "  make deploy  - Build plugin, setup cluster, deploy everything"
-	@echo "  make unit-test    - Run unit tests (no cluster needed)"
-	@echo "  make e2e-test     - Run E2E authentication tests (BATS)"
-	@echo "  make test-legacy  - Run legacy test script"
-	@echo "  make install-bats - Install BATS test framework"
-	@echo "  make destroy      - Destroy everything (deployments + cluster)"
-	@echo ""
-	@echo "Workflow:"
-	@echo "  1. make kind    - Create cluster (one-time setup)"
-	@echo "  2. make deploy  - Deploy MariaDB and test clients"
-	@echo "  3. make e2e-test - Run authentication tests"
-	@echo "  4. make destroy  - Destroy cluster when done"
-	@echo ""
-	@echo "Quick start:"
-	@echo "  make deploy && make e2e-test"
-	@echo ""
-	@echo "Multi-version build:"
-	@echo "  make init MARIADB_VERSION=10.6.27"
-	@echo "  make build MARIADB_VERSION=10.6.27"
-	@echo "  make unit-test MARIADB_VERSION=10.6.27"
-	@echo "  (default: MARIADB_VERSION=$(MARIADB_VERSION))"
+	@echo "Quick start:  make deploy && make e2e-test"
+	@echo "Multi-version: make build MARIADB_VERSION=11.4.12"
