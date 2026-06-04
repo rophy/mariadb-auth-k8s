@@ -50,4 +50,4 @@ helm upgrade --install mariadb "$CHART_DIR" \
     --set tls.enabled=true \
     --set service.type=NodePort \
     --set service.nodePort=30306 \
-    --wait --timeout 180s
+    --wait --timeout 300s
