@@ -23,6 +23,12 @@ echo ""
 echo "Deploying resources with skaffold..."
 skaffold deploy --build-artifacts="$TAGS_FILE"
 
+# Generate TLS certs (namespace must exist first, created by skaffold deploy above)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+echo ""
+echo "Generating TLS certificates..."
+"$SCRIPT_DIR/generate-tls-certs.sh"
+
 # Deploy MariaDB via Helm
 MARIADB_IMAGE=$(jq -r '.builds[] | select(.imageName=="mariadb-server") | .tag' "$TAGS_FILE")
 REPO="${MARIADB_IMAGE%%:*}"

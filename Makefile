@@ -23,13 +23,10 @@ deploy: build ## Build plugin, setup cluster, deploy everything
 	@echo "Step 1: Ensuring kind cluster exists..."
 	@./scripts/setup-kind-clusters.sh
 	@echo ""
-	@echo "Step 2: Generating TLS certificates..."
-	@./scripts/generate-tls-certs.sh
-	@echo ""
-	@echo "Step 3: Building images with skaffold..."
+	@echo "Step 2: Building images with skaffold..."
 	@skaffold build --file-output=/tmp/skaffold-build.json
 	@echo ""
-	@echo "Step 4: Loading images into Kind and deploying resources..."
+	@echo "Step 3: Loading images into Kind and deploying resources..."
 	@./scripts/deploy-to-kind.sh
 	@echo ""
 	@echo "Deployment complete! Run 'make e2e-test' to verify."
