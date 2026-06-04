@@ -3,6 +3,7 @@
 .DEFAULT_GOAL := help
 
 MARIADB_VERSION := 10.6.27
+KIND_NODE_IMAGE ?=
 export MARIADB_VERSION
 
 init: ## Download MariaDB server headers
@@ -21,7 +22,7 @@ kind: ## Create Kind cluster (cluster-a)
 
 deploy: build ## Build plugin, setup cluster, deploy everything
 	@echo "Step 1: Ensuring kind cluster exists..."
-	@./scripts/setup-kind-clusters.sh
+	@./scripts/setup-kind-clusters.sh $(KIND_NODE_IMAGE)
 	@echo ""
 	@echo "Step 2: Building images with skaffold..."
 	@skaffold build --file-output=/tmp/skaffold-build.json

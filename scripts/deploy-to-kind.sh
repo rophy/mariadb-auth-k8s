@@ -5,31 +5,37 @@ KUBE_CONTEXT="kind-cluster-a"
 CLUSTER_NAME="cluster-a"
 NAMESPACE="mariadb-auth-test"
 TAGS_FILE="${TAGS_FILE:-/tmp/skaffold-build.json}"
-CHART_DIR="$(cd "$(dirname "$0")/../helm/mariadb-auth-k8s" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CHART_DIR="$(cd "$SCRIPT_DIR/../helm/mariadb-auth-k8s" && pwd)"
 
 if [[ ! -f "$TAGS_FILE" ]]; then
     echo "Error: $TAGS_FILE not found. Run 'skaffold build --file-output=$TAGS_FILE' first."
     exit 1
 fi
 
-# Load all images into Kind
+# 1. Load all images into Kind
 echo "Loading images into Kind cluster..."
 for tag in $(jq -r '.builds[].tag' "$TAGS_FILE"); do
     kind load docker-image "$tag" --name "$CLUSTER_NAME"
 done
 
-# Deploy supporting resources (namespace, rbac, test clients) via skaffold
+# 2. Create namespace (needed before TLS secret and skaffold deploy)
 echo ""
-echo "Deploying resources with skaffold..."
-skaffold deploy --build-artifacts="$TAGS_FILE"
+echo "Ensuring namespace exists..."
+kubectl create namespace "$NAMESPACE" --context "$KUBE_CONTEXT" --dry-run=client -o yaml | \
+    kubectl apply --context "$KUBE_CONTEXT" -f -
 
-# Generate TLS certs (namespace must exist first, created by skaffold deploy above)
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# 3. Generate TLS certs (client pods mount this secret, must exist before they start)
 echo ""
 echo "Generating TLS certificates..."
 "$SCRIPT_DIR/generate-tls-certs.sh"
 
-# Deploy MariaDB via Helm
+# 4. Deploy supporting resources (rbac, test clients) via skaffold
+echo ""
+echo "Deploying resources with skaffold..."
+skaffold deploy --build-artifacts="$TAGS_FILE"
+
+# 5. Deploy MariaDB via Helm
 MARIADB_IMAGE=$(jq -r '.builds[] | select(.imageName=="mariadb-server") | .tag' "$TAGS_FILE")
 REPO="${MARIADB_IMAGE%%:*}"
 TAG="${MARIADB_IMAGE#*:}"
