@@ -48,7 +48,7 @@ spec:
             command:
             - bash
             - -c
-            - "$(command -v mysqladmin || command -v mariadb-admin) ping -h localhost"
+            - "$(command -v mysqladmin || command -v mariadb-admin) ping -h localhost --skip-ssl"
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
@@ -57,7 +57,7 @@ spec:
             command:
             - bash
             - -c
-            - "$(command -v mysqladmin || command -v mariadb-admin) ping -h localhost"
+            - "$(command -v mysqladmin || command -v mariadb-admin) ping -h localhost --skip-ssl"
           initialDelaySeconds: 10
           periodSeconds: 5
           timeoutSeconds: 3

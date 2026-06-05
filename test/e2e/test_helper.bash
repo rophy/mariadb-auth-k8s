@@ -60,14 +60,14 @@ mysql_with_token() {
 # Run mysql as root on the MariaDB pod (for checking server config)
 mysql_root() {
     local query="$1"
-    ka exec deployment/mariadb -- bash -c "\$(command -v mysql 2>/dev/null || command -v mariadb) -u root -e \"$query\""
+    ka exec deployment/mariadb -- bash -c "\$(command -v mysql 2>/dev/null || command -v mariadb) -u root --skip-ssl -e \"$query\""
 }
 
 # Run mysql as root on a specific MariaDB deployment
 mysql_root_on() {
     local deployment="$1"
     local query="$2"
-    ka exec "deployment/$deployment" -- bash -c "\$(command -v mysql 2>/dev/null || command -v mariadb) -u root -e \"$query\""
+    ka exec "deployment/$deployment" -- bash -c "\$(command -v mysql 2>/dev/null || command -v mariadb) -u root --skip-ssl -e \"$query\""
 }
 
 # Run mysql auth query against a specific MariaDB host from client-user1
