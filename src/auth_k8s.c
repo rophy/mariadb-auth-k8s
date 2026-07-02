@@ -169,11 +169,7 @@ static struct st_mysql_auth auth_k8s_handler = {
     NULL                     /* Validate auth string (not used) */
 };
 
-/*
- * Plugin declaration
- * Using mysql_declare_plugin for compatibility with MariaDB server loading
- */
-mysql_declare_plugin(auth_k8s)
+maria_declare_plugin(auth_k8s)
 {
     MYSQL_AUTHENTICATION_PLUGIN,
     &auth_k8s_handler,
@@ -186,7 +182,7 @@ mysql_declare_plugin(auth_k8s)
     PLUGIN_VERSION,
     NULL,                 /* Status variables */
     auth_k8s_sys_vars,    /* System variables */
-    NULL,                 /* Config options */
-    0                     /* Flags */
+    PLUGIN_VERSION_STRING,
+    MariaDB_PLUGIN_MATURITY_GAMMA
 }
-mysql_declare_plugin_end;
+maria_declare_plugin_end;

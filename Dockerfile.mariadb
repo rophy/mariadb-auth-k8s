@@ -10,10 +10,6 @@ RUN apt-get update && \
 # Copy pre-built server plugin from ./build/ directory
 COPY build/auth_k8s.so /usr/lib/mysql/plugin/
 
-# MariaDB configuration to allow plugin loading
-RUN mkdir -p /etc/mysql/mariadb.conf.d/ && \
-    echo "[mysqld]" > /etc/mysql/mariadb.conf.d/50-server.cnf && \
-    echo "plugin-maturity = unknown" >> /etc/mysql/mariadb.conf.d/50-server.cnf
 
 # Copy plugin installation script
 # The upstream mariadb:10.6 entrypoint automatically runs scripts in /docker-entrypoint-initdb.d/
